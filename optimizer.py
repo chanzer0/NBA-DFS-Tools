@@ -7,11 +7,10 @@ class Optimizer:
     config = None
     output_filepath = None
     num_lineups = None
-    player_projections = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'FLEX': {}, 'DST': {}}
-    player_salaries = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'FLEX': {}, 'DST': {}}
-    player_ownership = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'FLEX': {}, 'DST': {}}
-    player_positions = {'QB': [], 'RB': [], 'WR': [], 'TE': [], 'FLEX': [], 'DST': []}
-    roser_construction = {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'FLEX': 1, 'DST': 1 }
+    player_projections = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
+    player_salaries = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
+    player_ownership = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
+    roster_construction = {'QB': 1, 'RB': 2, 'WR': 3 + 1, 'TE': 1, 'DST': 1 }
     max_salary = 50000
     lineups = []
 
@@ -38,14 +37,6 @@ class Optimizer:
                 self.player_projections[row['Position']][row['Name']] = float(row['Fpts'])
                 # salary 
                 self.player_salaries[row['Position']][row['Name']] = int(row['Salary'].replace(',',''))
-                # position
-                self.player_positions[row['Position']].append(row['Name'])
-
-                # do the same if they're a flex player
-                if row['Position'] == 'RB' or row['Position'] == 'WR' or row['Position'] == 'TE':
-                    self.player_projections['FLEX'][row['Name']] = float(row['Fpts'])
-                    self.player_salaries['FLEX'][row['Name']] = int(row['Salary'].replace(',',''))
-                    self.player_positions['FLEX'].append(row['Name'])
 
     # Load ownership from file
     def load_ownership(self, path):
@@ -61,20 +52,20 @@ class Optimizer:
 
         # We want to create a variable for each roster slot. 
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
-        lp_variables = {k: LpVariable.dict(k, v, cat='Binary') for k, v in self.player_projections.items()}
+        lp_variables = {pos: LpVariable.dict(pos, players, cat='Binary') for pos, players in self.player_projections.items()}
 
         projection_constraints = []
         salary_constraints = []
         position_constraints = []
 
-        for k, v in lp_variables.items():
+        for position, players in lp_variables.items():
             # Set salary constraints
-            salary_constraints += lpSum([self.player_salaries[k][i] * lp_variables[k][i] for i in v])
+            salary_constraints += lpSum([self.player_salaries[position][player] * lp_variables[position][player] for player in players])
             # Set projections to maximize
-            projection_constraints += lpSum([self.player_projections[k][i] * lp_variables[k][i] for i in v])
+            projection_constraints += lpSum([self.player_projections[position][player] * lp_variables[position][player] for player in players])
             # Set positional constraints
-            self.problem += lpSum([lp_variables[k][i] for i in v]) <= self.roser_construction[k]
-            
+            self.problem += lpSum([lp_variables[position][player] for player in players]) == self.roster_construction[position]
+
         self.problem += lpSum(projection_constraints)
         self.problem += lpSum(salary_constraints) <= self.max_salary
         self.problem.solve()
