@@ -1,5 +1,6 @@
 {
     "projection_path": "projections.csv",
     "ownership_path": "ownership.csv",
-    "output_path": "output.csv"
+    "output_path": "output.csv",
+    "num_lineups": 100
 }
