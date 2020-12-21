@@ -2,7 +2,7 @@ import json
 import csv
 from pulp import *
 
-class Optimizer:
+class NFL_Optimizer:
     problem = None
     config = None
     output_filepath = None
@@ -10,7 +10,7 @@ class Optimizer:
     player_projections = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
     player_salaries = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
     player_ownership = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
-    roster_construction = {'QB': 1, 'RB': 2, 'WR': 3 + 1, 'TE': 1, 'DST': 1 }
+    roster_construction = {'QB': 1, 'RB': 2 + 1, 'WR': 3, 'TE': 1, 'DST': 1 }
     max_salary = 50000
     lineups = []
 

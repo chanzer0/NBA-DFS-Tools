@@ -1,9 +1,17 @@
-from optimizer import *
+import sys
+from nfl_optimizer import *
+from nba_optimizer import *
 
-def main():
-    o = Optimizer()
-    o.optimize()
-    o.output()
+def main(optimizerType):
+    if optimizerType == 'NBA':
+        o = NBA_Optimizer()
+        o.optimize()
+        o.output()
+
+    elif optimizerType == 'NFL':
+        o = NFL_Optimizer()
+        o.optimize()
+        o.output()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])
