@@ -13,7 +13,7 @@ class NBA_Optimizer:
     roster_construction = {'PG': 1, 'SG': 1, 'SF': 1, 'PF': 1, 'C': 1, 'F': 1, 'G': 1, 'UTIL': 1}
     player_ids = {}
     max_salary = 50000
-    lineups = []
+    lineups = {}
 
     def __init__(self):
         self.problem = LpProblem('NBA', LpMaximize)
@@ -77,8 +77,6 @@ class NBA_Optimizer:
             self.player_projections['UTIL'] = {**pg_players, **sg_players, **sf_players, **pf_players, **c_players}
             self.player_salaries['UTIL'] = {**pg_players, **sg_players, **sf_players, **pf_players, **c_players}
 
-            print(self.player_projections)
-
     # Load ownership from file
     def load_ownership(self, path):
         # Read ownership into a dictionary
@@ -100,21 +98,23 @@ class NBA_Optimizer:
 
         # We want to create a variable for each roster slot. 
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
+        # lp_variables = {'PG': 'LeBron James' : 'PG_LeBron James', 'Kyrie Irving': 'PG_Kyrie_Irving', .... , 'SG' : .... , etc... }
         lp_variables = {pos: LpVariable.dict(pos, players, cat='Binary') for pos, players in self.player_projections.items()}
+        print(lp_variables)
 
-        projection_constraints = []
+        # Set salary constraints and fpts objective
         salary_constraints = []
-        position_constraints = []
+        projection_objectives = []
 
         for position, players in lp_variables.items():
             # Set salary constraints
             salary_constraints += lpSum([self.player_salaries[position][player] * lp_variables[position][player] for player in players])
             # Set projections to maximize
-            projection_constraints += lpSum([self.player_projections[position][player] * lp_variables[position][player] for player in players])
+            projection_objectives += lpSum([self.player_projections[position][player] * lp_variables[position][player] for player in players])
             # Set positional constraints
             self.problem += lpSum([lp_variables[position][player] for player in players]) == self.roster_construction[position]
 
-        self.problem += lpSum(projection_constraints)
+        self.problem += lpSum(projection_objectives)
         self.problem += lpSum(salary_constraints) <= self.max_salary
         self.problem.solve()
 
@@ -129,15 +129,15 @@ class NBA_Optimizer:
             if v.varValue != 0:
                 print(v.name, '=', v.varValue)
         print(div)
-        print('Constraints:')
-        for constraint in constraints:
-            constraint_pretty = ' + '.join(re.findall('[0-9\.]*\*1.0', constraint))
-            if constraint_pretty != '':
-                print('{} = {}'.format(constraint_pretty, eval(constraint_pretty)))
-        print(div)
-        print('Score:')
-        score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
-        print('{} = {}'.format(score_pretty, eval(score)))
+        # print('Constraints:')
+        # for constraint in constraints:
+        #     constraint_pretty = ' + '.join(re.findall('[0-9\.]*\*1.0', constraint))
+        #     if constraint_pretty != '':
+        #         print('{} = {}'.format(constraint_pretty, eval(constraint_pretty)))
+        # print(div)
+        # print('Score:')
+        # score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
+        # print('{} = {}'.format(score_pretty, eval(score)))
         # with open(self.output_filepath, 'w') as f:
         #     f.write('QB,RB,RB,WR,WR,WR,TE,FLEX,DST,Fpts,Salary,Ownership\n')
         #     for x in final:
