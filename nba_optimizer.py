@@ -7,11 +7,9 @@ class NBA_Optimizer:
     config = None
     output_filepath = None
     num_lineups = None
-    player_projections = {'PG': {}, 'SG': {}, 'SF': {}, 'PF': {}, 'C': {}, 'F': {}, 'G': {}, 'UTIL': {}}
-    player_salaries = {'PG': {}, 'SG': {}, 'SF': {}, 'PF': {}, 'C': {}, 'F': {}, 'G': {}, 'UTIL': {}}
-    player_ownership = {'PG': {}, 'SG': {}, 'SF': {}, 'PF': {}, 'C': {}, 'F': {}, 'G': {}, 'UTIL': {}}
+    player_dict = {}
+    player_positions = {'PG': {}, 'SG': {}, 'SF': {}, 'PF': {}, 'C': {}, 'F': {}, 'G': {}, 'UTIL': {}}
     roster_construction = {'PG': 1, 'SG': 1, 'SF': 1, 'PF': 1, 'C': 1, 'F': 1, 'G': 1, 'UTIL': 1}
-    player_ids = {}
     max_salary = 50000
     lineups = {}
 
@@ -33,7 +31,8 @@ class NBA_Optimizer:
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                self.player_ids[row['Name']] = row['ID']
+                player_name = row['Name'].replace('-', ' ')
+                self.player_dict[player_name]['ID'] = int(row['ID'])
 
     # Load projections from file
     def load_projections(self, path):
@@ -41,56 +40,26 @@ class NBA_Optimizer:
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                # Handle multi-position eligibility 
-                if '/' in row['Position']:
-                    pos_1 = row['Position'].split('/')[0]
-                    pos_2 = row['Position'].split('/')[1]
-                    # projection
-                    self.player_projections[pos_1][row['Name']] = float(row['Fpts'])
-                    self.player_projections[pos_2][row['Name']] = float(row['Fpts'])
+                player_name = row['Name'].replace('-', ' ')
+                self.player_dict[player_name] = {'Fpts': None, 'Position': [], 'ID': 0, 'Salary': None, 'Ownership': None}
+                self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
 
-                    # salary 
-                    self.player_salaries[pos_1][row['Name']] = int(row['Salary'].replace(',',''))
-                    self.player_salaries[pos_2][row['Name']] = int(row['Salary'].replace(',',''))
+                #some players have 2 positions - will be listed like 'PG/SF' or 'PF/C'
+                self.player_dict[player_name]['Position'] = [pos for pos in row['Position'].split('/')]
 
-                else:
-                    # projection
-                    self.player_projections[row['Position']][row['Name']] = float(row['Fpts'])
-
-                    # salary 
-                    self.player_salaries[row['Position']][row['Name']] = int(row['Salary'].replace(',',''))
-
-            # Add SF and PF to F position
-            sf_players = self.player_projections['SF']
-            pf_players = self.player_projections['PF']
-            self.player_projections['F'] = {**sf_players, **pf_players}
-            self.player_salaries['F'] = {**sf_players, **pf_players}
-            
-            # Add PG and SG to G position
-            pg_players = self.player_projections['PG'] 
-            sg_players = self.player_projections['SG'] 
-            self.player_projections['G'] = {**pg_players, **sg_players}
-            self.player_salaries['G'] = {**pg_players, **sg_players}
-            
-            # Add all players to UTIL position
-            c_players = self.player_projections['C']
-            self.player_projections['UTIL'] = {**pg_players, **sg_players, **sf_players, **pf_players, **c_players}
-            self.player_salaries['UTIL'] = {**pg_players, **sg_players, **sf_players, **pf_players, **c_players}
-
+                self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
+                # need to pre-emptively set ownership to 0 as some players will not have ownership
+                # if a player does have ownership, it will be updated later on in load_ownership()
+                self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
+                
     # Load ownership from file
     def load_ownership(self, path):
         # Read ownership into a dictionary
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                 # Handle multi-position eligibility 
-                if '/' in row['Position']:
-                    pos_1 = row['Position'].split('/')[0]
-                    pos_2 = row['Position'].split('/')[1]
-                    self.player_ownership[pos_1][row['Name']] = row['Ownership %']
-                    self.player_ownership[pos_2][row['Name']] = row['Ownership %']
-                else:
-                    self.player_ownership[row['Position']][row['Name']] = row['Ownership %']
+                player_name = row['Name'].replace('-', ' ')
+                self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
     def optimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
@@ -99,24 +68,47 @@ class NBA_Optimizer:
         # We want to create a variable for each roster slot. 
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
         # lp_variables = {'PG': 'LeBron James' : 'PG_LeBron James', 'Kyrie Irving': 'PG_Kyrie_Irving', .... , 'SG' : .... , etc... }
-        lp_variables = {pos: LpVariable.dict(pos, players, cat='Binary') for pos, players in self.player_projections.items()}
-        print(lp_variables)
+        lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
-        # Set salary constraints and fpts objective
-        salary_constraints = []
-        projection_objectives = []
+        # set the objective - maximize fpts
+        self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player, _ in self.player_dict.items())
 
-        for position, players in lp_variables.items():
-            # Set salary constraints
-            salary_constraints += lpSum([self.player_salaries[position][player] * lp_variables[position][player] for player in players])
-            # Set projections to maximize
-            projection_objectives += lpSum([self.player_projections[position][player] * lp_variables[position][player] for player in players])
-            # Set positional constraints
-            self.problem += lpSum([lp_variables[position][player] for player in players]) == self.roster_construction[position]
+        # Set the salary constraints
+        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player, _ in self.player_dict.items()) <= self.max_salary
 
-        self.problem += lpSum(projection_objectives)
-        self.problem += lpSum(salary_constraints) <= self.max_salary
-        self.problem.solve()
+        # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PG' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PG' in self.player_dict[player]['Position']) <= 3
+        # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SG' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SG' in self.player_dict[player]['Position']) <= 3
+        # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SF' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SF' in self.player_dict[player]['Position']) <= 3
+        # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PF' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PF' in self.player_dict[player]['Position']) <= 3
+        # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'C' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'C' in self.player_dict[player]['Position']) <= 2
+        # Can only roster 8 total players
+        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items()) == 8
+
+        # Crunch!
+        for i in range(self.num_lineups):
+            self.problem.solve(PULP_CBC_CMD(msg=0))
+
+            id_sum = sum(self.player_dict[v.name.replace('_', ' ')]['ID'] for v in self.problem.variables() if v.varValue != 0)
+            player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
+            print(id_sum)
+            print(player_names)
+            self.lineups[id_sum] = player_names
+
+            # Dont generate the same lineup twice - enforce this through the sum of player Ids!
+            self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player, _ in self.player_dict.items()) != id_sum
+            # self.output()
+
+        # print(self.lineups)
 
     def output(self):
         div = '---------------------------------------\n'
@@ -129,15 +121,17 @@ class NBA_Optimizer:
             if v.varValue != 0:
                 print(v.name, '=', v.varValue)
         print(div)
-        # print('Constraints:')
-        # for constraint in constraints:
-        #     constraint_pretty = ' + '.join(re.findall('[0-9\.]*\*1.0', constraint))
-        #     if constraint_pretty != '':
-        #         print('{} = {}'.format(constraint_pretty, eval(constraint_pretty)))
-        # print(div)
-        # print('Score:')
-        # score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
-        # print('{} = {}'.format(score_pretty, eval(score)))
+        print('Constraints:')
+        for constraint in constraints:
+            constraint_pretty = ' + '.join(re.findall('[0-9\.]*\*1.0', constraint))
+            if constraint_pretty != '':
+                print('{} = {}'.format(constraint_pretty, eval(constraint_pretty)))
+        print(div)
+        print('Score:')
+        score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
+        print('{} = {}'.format(score_pretty, eval(score)))
+
+        print(self.lineups)
         # with open(self.output_filepath, 'w') as f:
         #     f.write('QB,RB,RB,WR,WR,WR,TE,FLEX,DST,Fpts,Salary,Ownership\n')
         #     for x in final:
