@@ -2,6 +2,7 @@ import json
 import csv
 from pulp import *
 
+
 class NBA_Optimizer:
     problem = None
     config = None
@@ -71,28 +72,28 @@ class NBA_Optimizer:
         lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
         # set the objective - maximize fpts
-        self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player, _ in self.player_dict.items())
+        self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict)
 
         # Set the salary constraints
-        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player, _ in self.player_dict.items()) <= self.max_salary
+        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.max_salary
 
         # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PG' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PG' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SG' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SG' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SF' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'SF' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PF' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'PF' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'C' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items() if 'C' in self.player_dict[player]['Position']) <= 2
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 2
         # Can only roster 8 total players
-        self.problem += lpSum(lp_variables[player] for player, _ in self.player_dict.items()) == 8
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 8
 
         # Crunch!
         for i in range(self.num_lineups):
@@ -105,7 +106,7 @@ class NBA_Optimizer:
             self.lineups[id_sum] = player_names
 
             # Dont generate the same lineup twice - enforce this through the sum of player Ids!
-            self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player, _ in self.player_dict.items()) != id_sum
+            self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict) != id_sum
             # self.output()
 
         # print(self.lineups)
