@@ -6,7 +6,7 @@ class NBA_GPP_Simulator:
     config = None
     player_dict = {}
     field_lineups = []
-    winning_lineups = []
+    winning_lineups = {}
     roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G']
 
     def __init__(self):
@@ -103,7 +103,7 @@ class NBA_GPP_Simulator:
                 field_score[fpts_sim] = lineup
 
             winning_lineup = max(field_score, key=float)
-            self.winning_lineups.append(field_score[winning_lineup])
+            self.winning_lineups[winning_lineup] = field_score[winning_lineup]
 
         print(num_iterations + ' tournament simulations finished')
         print(self.winning_lineups)
