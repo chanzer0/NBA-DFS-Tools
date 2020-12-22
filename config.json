@@ -2,7 +2,8 @@
     "projection_path": "projections.csv",
     "ownership_path": "ownership.csv",
     "player_path": "player_ids.csv",
+    "boombust_path": "boom_bust.csv",
     "output_path": "output.csv",
-    "num_lineups": 3,
+    "num_lineups": 5000,
     "site": "DK"
 }
