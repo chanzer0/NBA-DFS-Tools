@@ -120,17 +120,17 @@ class NBA_Optimizer:
             self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev'])* lp_variables[player] for player in self.player_dict)
 
     def output(self):
-        print(self.lineups)
         with open(self.output_filepath, 'w') as f:
-            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts,Salary,Own. Product,Own. Sum\n')
+            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Own. Sum\n')
             for fpts, x in self.lineups.items():
                 lineup = x.sort()
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
+                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                 own_s = round(sum(self.player_dict[player]['Ownership'] for player in x), 2)
                 own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
                     x[0].replace('#', '-'),x[1].replace('#', '-'),x[2].replace('#', '-'),x[3].replace('#', '-'),
                     x[4].replace('#', '-'),x[5].replace('#', '-'),x[6].replace('#', '-'),x[7].replace('#', '-'),
-                    fpts,salary,own_p*100,own_s
+                    fpts_p,fpts_s,salary,own_p*1000,own_s
                 )
                 f.write('%s\n' % lineup_str)
