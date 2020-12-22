@@ -1,5 +1,6 @@
 import json
 import csv
+import re
 import numpy as np
 from pulp import *
 
@@ -110,10 +111,12 @@ class NBA_Optimizer:
         for i in range(self.num_lineups):
             self.problem.solve(PULP_CBC_CMD(msg=0))
 
+            score = str(self.problem.objective)
+            for v in self.problem.variables():
+                score = score.replace(v.name, str(v.varValue))
+            print(i)
             player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
-            fpts_total = round(sum(self.player_dict[v.name.replace('_', ' ')]['Fpts'] for v in self.problem.variables() if v.varValue != 0), 2)
-            print('' + str(fpts_total) + ' - ' + str(player_names))
-            self.lineups[fpts_total] = player_names
+            self.lineups[eval(score)] = player_names
 
             # Dont generate the same lineup twice - enforce this by lowering the objective i.e. producing sub-optimal results
             # self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts_total - 0.01)
@@ -121,16 +124,14 @@ class NBA_Optimizer:
 
     def output(self):
         with open(self.output_filepath, 'w') as f:
-            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Own. Sum\n')
+            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
             for fpts, x in self.lineups.items():
-                lineup = x.sort()
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
                 fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
-                own_s = round(sum(self.player_dict[player]['Ownership'] for player in x), 2)
                 own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
                     x[0].replace('#', '-'),x[1].replace('#', '-'),x[2].replace('#', '-'),x[3].replace('#', '-'),
                     x[4].replace('#', '-'),x[5].replace('#', '-'),x[6].replace('#', '-'),x[7].replace('#', '-'),
-                    fpts_p,fpts_s,salary,own_p*1000,own_s
+                    round(fpts_p, 2),round(fpts, 2),salary,own_p
                 )
                 f.write('%s\n' % lineup_str)

@@ -4,6 +4,6 @@
     "player_path": "player_ids.csv",
     "boombust_path": "boom_bust.csv",
     "output_path": "output.csv",
-    "num_lineups": 100000,
+    "num_lineups": 10,
     "site": "DK"
 }
