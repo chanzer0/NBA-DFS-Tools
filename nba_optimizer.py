@@ -99,17 +99,19 @@ class NBA_Optimizer:
         for i in range(self.num_lineups):
             self.problem.solve(PULP_CBC_CMD(msg=0))
 
-            id_sum = sum(self.player_dict[v.name.replace('_', ' ')]['ID'] for v in self.problem.variables() if v.varValue != 0)
+            # id_sum = sum(self.player_dict[v.name.replace('_', ' ')]['ID'] for v in self.problem.variables() if v.varValue != 0)
             player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
-            print(id_sum)
-            print(player_names)
-            self.lineups[id_sum] = player_names
+            fpts_total = round(sum(self.player_dict[v.name.replace('_', ' ')]['Fpts'] for v in self.problem.variables() if v.varValue != 0), 2)
+            print('' + str(fpts_total) + ' - ' + str(player_names))
+            self.lineups[fpts_total] = player_names
 
-            # Dont generate the same lineup twice - enforce this through the sum of player Ids!
-            self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict) != id_sum
+            # # Dont generate the same lineup twice - enforce this through the sum of player Ids!
+            # self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict) != id_sum
+           
+            self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts_total - 0.01)
             # self.output()
 
-        # print(self.lineups)
+        print(self.lineups)
 
     def output(self):
         div = '---------------------------------------\n'
