@@ -98,50 +98,23 @@ class NBA_Optimizer:
         # Crunch!
         for i in range(self.num_lineups):
             self.problem.solve(PULP_CBC_CMD(msg=0))
-
-            # id_sum = sum(self.player_dict[v.name.replace('_', ' ')]['ID'] for v in self.problem.variables() if v.varValue != 0)
-            player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
+            
+            player_names = [v.name.replace('_', ' ').replace('#', '-') for v in self.problem.variables() if v.varValue != 0]
             fpts_total = round(sum(self.player_dict[v.name.replace('_', ' ')]['Fpts'] for v in self.problem.variables() if v.varValue != 0), 2)
             print('' + str(fpts_total) + ' - ' + str(player_names))
             self.lineups[fpts_total] = player_names
 
-            # # Dont generate the same lineup twice - enforce this through the sum of player Ids!
-            # self.problem += lpSum(self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict) != id_sum
-           
+            # Dont generate the same lineup twice - enforce this by lowering the objective i.e. producing sub-optimal results
             self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts_total - 0.01)
-            # self.output()
-
-        print(self.lineups)
 
     def output(self):
-        div = '---------------------------------------\n'
-        print('Variables:\n')
-        score = str(self.problem.objective)
-        constraints = [str(const) for const in self.problem.constraints.values()]
-        for v in self.problem.variables():
-            score = score.replace(v.name, str(v.varValue))
-            constraints = [const.replace(v.name, str(v.varValue)) for const in constraints]
-            if v.varValue != 0:
-                print(v.name, '=', v.varValue)
-        print(div)
-        print('Constraints:')
-        for constraint in constraints:
-            constraint_pretty = ' + '.join(re.findall('[0-9\.]*\*1.0', constraint))
-            if constraint_pretty != '':
-                print('{} = {}'.format(constraint_pretty, eval(constraint_pretty)))
-        print(div)
-        print('Score:')
-        score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
-        print('{} = {}'.format(score_pretty, eval(score)))
-
         print(self.lineups)
-        # with open(self.output_filepath, 'w') as f:
-        #     f.write('QB,RB,RB,WR,WR,WR,TE,FLEX,DST,Fpts,Salary,Ownership\n')
-        #     for x in final:
-        #         fpts = sum(float(projection_dict[player]['Fpts']) for player in x)
-        #         salary = sum(int(projection_dict[player]['Salary'].replace(',','')) for player in x)
-        #         own = sum(float(ownership_dict[player]) for player in x)
-        #         lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-        #             x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8],fpts,salary,own
-        #         )
-        #         f.write('%s\n' % lineup_str)
+        with open(self.output_filepath, 'w') as f:
+            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts,Salary,Ownership\n')
+            for fpts, x in self.lineups.items():
+                salary = sum(self.player_dict[player]['Salary'] for player in x)
+                own = round(sum(self.player_dict[player]['Ownership'] for player in x), 2)
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{}'.format(
+                    x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],fpts,salary,own
+                )
+                f.write('%s\n' % lineup_str)

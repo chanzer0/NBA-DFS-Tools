@@ -3,6 +3,6 @@
     "ownership_path": "ownership.csv",
     "player_path": "player_ids.csv",
     "output_path": "output.csv",
-    "num_lineups": 1000,
+    "num_lineups": 3,
     "site": "DK"
 }
