@@ -1,5 +1,6 @@
 import json
 import csv
+import math
 import numpy as np
 
 class NBA_GPP_Simulator:
@@ -7,7 +8,7 @@ class NBA_GPP_Simulator:
     player_dict = {}
     field_lineups = []
     winning_lineups = {}
-    roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G']
+    roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G', 'UTIL']
 
     def __init__(self):
         self.load_config()
@@ -40,6 +41,9 @@ class NBA_GPP_Simulator:
                 if 'SF' in self.player_dict[player_name]['Position'] or 'PF' in self.player_dict[player_name]['Position']:
                     self.player_dict[player_name]['Position'].append('F')
 
+                self.player_dict[player_name]['Position'].append('UTIL')
+
+
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
                 # need to pre-emptively set ownership to 0 as some players will not have ownership
                 # if a player does have ownership, it will be updated later on in load_ownership()
@@ -52,7 +56,8 @@ class NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name']
-                self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
+                if player_name in self.player_dict:
+                    self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
     
     # Load standard deviations
     def load_boom_bust(self, path):
@@ -104,18 +109,20 @@ class NBA_GPP_Simulator:
 
             winning_lineup = max(field_score, key=float)
             self.winning_lineups[winning_lineup] = field_score[winning_lineup]
+            # print(i)
 
         print(num_iterations + ' tournament simulations finished')
 
     def output(self):
         with open(self.config['tourney_sim_path'], 'w') as f:
             f.write('Lineup,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
-            for sim_pts, lineup in self.winning_lineups.items():
-                salary = sum(self.player_dict[player]['Salary'] for player in lineup)
-                fpts_p = sum(self.player_dict[player]['Fpts'] for player in lineup)
-                own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in lineup])
-                lineup_str = '{},{},{},{},{}'.format(
-                    lineup,fpts_p,sim_pts,salary,own_p
+            for sim_pts, x in self.winning_lineups.items():
+                salary = sum(self.player_dict[player]['Salary'] for player in x)
+                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
+                own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                    x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],
+                    fpts_p,sim_pts,salary,own_p
                 )
                 f.write('%s\n' % lineup_str)
         with open('gpp_player_exposure_sim.csv', 'w') as f:
@@ -125,5 +132,5 @@ class NBA_GPP_Simulator:
                 field_own = sum([lineup.count(player) for lineup in self.field_lineups])/len(self.field_lineups)
                 win_own = sum([lineup.count(player) for _,lineup in self.winning_lineups.items()])/len(self.winning_lineups)
                 proj_own = self.player_dict[player]['Ownership']
-                f.write('{},{},{},{}\n'.format(player, round(win_own * 100, 2), round(field_own * 100, 2), proj_own))
+                f.write('{},{}%,{}%,{}%\n'.format(player, round(win_own * 100, 2), round(field_own * 100, 2), proj_own))
         

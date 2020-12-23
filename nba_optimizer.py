@@ -72,7 +72,8 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
+                if player_name in self.player_dict:
+                    self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
     def optimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming

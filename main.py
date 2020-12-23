@@ -20,5 +20,14 @@ def main(flag, rest):
         sim.run_tournament_simulation(rest[3])
         sim.output()
 
+    elif flag.lower() == 'all':
+        o = NBA_Optimizer()
+        o.optimize()
+        o.output()
+        sim = NBA_GPP_Simulator()
+        sim.generate_field_lineups(rest[2])
+        sim.run_tournament_simulation(rest[3])
+        sim.output()
+
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv)
