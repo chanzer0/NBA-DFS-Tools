@@ -3,7 +3,7 @@ import csv
 import re
 import numpy as np
 from pulp import *
-from datetime import date
+from datetime import datetime
 
 
 class NBA_Ilya_Optimizer:
@@ -69,7 +69,7 @@ class NBA_Ilya_Optimizer:
                 # if a player does have ownership, it will be updated later on in load_ownership()
                 self.player_dict[player_name]['Salary'] = float(row['Salary'])
 
-                if self.tournament_id is not None:
+                if self.tournament_id is None:
                     self.tournament_id = int(row['Tournament ID'])
                 
     # Load ownership from file
@@ -82,7 +82,7 @@ class NBA_Ilya_Optimizer:
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
-    def optimize(self):
+    def optimize(self, num_lineups):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
 
@@ -116,15 +116,14 @@ class NBA_Ilya_Optimizer:
         self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 7
 
         # Crunch!
-        for i in range(self.num_lineups):
+        for i in range(int(num_lineups)):
             self.problem.solve(PULP_CBC_CMD(msg=0))
 
             score = str(self.problem.objective)
             for v in self.problem.variables():
                 score = score.replace(v.name, str(v.varValue))
 
-            if i % 100 == 0:
-                print(i)
+            print(i)
 
             player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
             fpts = eval(score)
@@ -132,12 +131,12 @@ class NBA_Ilya_Optimizer:
 
             # Dont generate the same lineup twice
             # Enforce this by lowering the objective i.e. producing sub-optimal results
-            self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev'])* lp_variables[player] for player in self.player_dict)
+            self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
            
 
     def output(self):
         self.format_lineups()
-        with open('optimal_lineups_{}.csv'.format(date.today()), 'w') as f:
+        with open('ilya/optimal_lineups_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('guard_point,guard_shooting,forward_small,forward_power,center,flex,flex,Fpts Projection,Salary,\n')
             for fpts, x in self.lineups.items():
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
@@ -152,11 +151,11 @@ class NBA_Ilya_Optimizer:
                     round(fpts, 2),round(salary, 2)
                 )
                 f.write('%s\n' % lineup_str)
-        with open('optimal_lineups_upload_{}.csv'.format(date.today()), 'w') as f:
+        with open('ilya/optimal_lineups_upload_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('tournament_id,guard_point,guard_shooting,forward_small,forward_power,center,flex,flex\n')
             for fpts, x in self.lineups.items():
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
-                lineup_str = '{},{},{},{},{},{},{},'.format(
+                lineup_str = '{},{},{},{},{},{},{},{}'.format(
                     self.tournament_id,
                     self.player_dict[x[0]]['ID'],
                     self.player_dict[x[1]]['ID'],

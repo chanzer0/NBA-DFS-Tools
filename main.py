@@ -37,7 +37,7 @@ def main(flag, rest):
 
     elif flag.lower() == 'ilya':
         o = NBA_Ilya_Optimizer()
-        o.optimize()
+        o.optimize(rest[2])
         o.output()
 
 
