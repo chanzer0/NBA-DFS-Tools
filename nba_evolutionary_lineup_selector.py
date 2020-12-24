@@ -67,5 +67,10 @@ class NBA_Evolutionary_Lineup_Selector:
                 i = i + 1
 
     def run_evolution(self):
+        # From the pool of lineups, simulate a GPP
+        # For each lineup in the pool, mark how often they win, finish top 1%, finish top 10%
+        # Create some metric from the win%,1%,10%
+        # Keep only the top 90% from each iteration
+        # Repeat until you have a set of 150 lineups
         pass
         
