@@ -123,7 +123,7 @@ class NBA_Optimizer:
             if i % 100 == 0:
                 print(i)
 
-            player_names = [v.name for v in self.problem.variables() if v.varValue != 0]
+            player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
             fpts = eval(score)
             self.lineups[fpts] = player_names
 
@@ -143,10 +143,10 @@ class NBA_Optimizer:
                 fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                 own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
                 lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                    x[0].replace('#', '-').replace('_', ' '),x[1].replace('#', '-').replace('_', ' '),
-                    x[2].replace('#', '-').replace('_', ' '),x[3].replace('#', '-').replace('_', ' '),
-                    x[4].replace('#', '-').replace('_', ' '),x[5].replace('#', '-').replace('_', ' '),
-                    x[6].replace('#', '-').replace('_', ' '),x[7].replace('#', '-').replace('_', ' '),
+                    x[0].replace('#', '-'),x[1].replace('#', '-'),
+                    x[2].replace('#', '-'),x[3].replace('#', '-'),
+                    x[4].replace('#', '-'),x[5].replace('#', '-'),
+                    x[6].replace('#', '-'),x[7].replace('#', '-'),
                     round(fpts_p, 2),round(fpts, 2),salary,own_p
                 )
                 f.write('%s\n' % lineup_str)
