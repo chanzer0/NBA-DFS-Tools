@@ -75,7 +75,7 @@ class NBA_Optimizer:
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
-    def optimize(self):
+    def optimize(self, use_randomness):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
 
@@ -85,7 +85,11 @@ class NBA_Optimizer:
         lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
         # set the objective - maximize fpts
-        self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict)
+        print(use_randomness)
+        if use_randomness == 'rand':
+            self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict), 'Objective'
+        else:
+            self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict), 'Objective'
 
         # Set the salary constraints
         self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.max_salary
@@ -115,13 +119,21 @@ class NBA_Optimizer:
             score = str(self.problem.objective)
             for v in self.problem.variables():
                 score = score.replace(v.name, str(v.varValue))
-            print(i)
-            player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
-            self.lineups[eval(score)] = player_names
 
-            # Dont generate the same lineup twice - enforce this by lowering the objective i.e. producing sub-optimal results
-            # self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts_total - 0.01)
-            self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev'])* lp_variables[player] for player in self.player_dict)
+            if i % 100 == 0:
+                print(i)
+
+            player_names = [v.name for v in self.problem.variables() if v.varValue != 0]
+            fpts = eval(score)
+            self.lineups[fpts] = player_names
+
+            # Dont generate the same lineup twice
+            if use_randomness == 'rand':
+                # Enforce this by lowering the objective i.e. producing sub-optimal results
+                self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev'])* lp_variables[player] for player in self.player_dict)
+            else:
+                # Set a new random fpts projection within their distribution
+                self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
 
     def output(self):
         with open(self.output_filepath, 'w') as f:
@@ -131,8 +143,10 @@ class NBA_Optimizer:
                 fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                 own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
                 lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                    x[0].replace('#', '-'),x[1].replace('#', '-'),x[2].replace('#', '-'),x[3].replace('#', '-'),
-                    x[4].replace('#', '-'),x[5].replace('#', '-'),x[6].replace('#', '-'),x[7].replace('#', '-'),
+                    x[0].replace('#', '-').replace('_', ' '),x[1].replace('#', '-').replace('_', ' '),
+                    x[2].replace('#', '-').replace('_', ' '),x[3].replace('#', '-').replace('_', ' '),
+                    x[4].replace('#', '-').replace('_', ' '),x[5].replace('#', '-').replace('_', ' '),
+                    x[6].replace('#', '-').replace('_', ' '),x[7].replace('#', '-').replace('_', ' '),
                     round(fpts_p, 2),round(fpts, 2),salary,own_p
                 )
                 f.write('%s\n' % lineup_str)
