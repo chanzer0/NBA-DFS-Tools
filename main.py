@@ -1,6 +1,7 @@
 import sys
 from nfl_optimizer import *
 from nba_optimizer import *
+from ilya_optimizer import *
 from nba_gpp_simulator import *
 from nba_evolutionary_lineup_selector import *
 
@@ -33,6 +34,12 @@ def main(flag, rest):
     elif flag.lower() == 'evolutionary':
         selector = NBA_Evolutionary_Lineup_Selector()
         selector.run_evolution()
+
+    elif flag.lower() == 'ilya':
+        o = NBA_Ilya_Optimizer()
+        o.optimize()
+        o.output()
+
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv)

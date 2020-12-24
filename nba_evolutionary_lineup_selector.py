@@ -2,6 +2,7 @@ import json
 import csv
 import math
 import numpy as np
+from collections import OrderedDict
 
 class NBA_Evolutionary_Lineup_Selector:
     config = None
@@ -67,6 +68,46 @@ class NBA_Evolutionary_Lineup_Selector:
                 i = i + 1
 
     def run_evolution(self):
+        remaining_pool = self.lineup_pool
+        # While we still have more than the requisite 150 "surviving" lineups
+        while len(remaining_pool) >= 150:
+            # Dict of lineup fitness metrics - e.g. key = lineup, value = times won, times top 10% and times top 10%
+            # {[player_a, player_b ...] : {'win%': x, 'top1%': y, 'top10%': z}}
+            lineup_fitness = {}
+            # The winning lineups for this iteration
+            winning_lineups = []
+            # The top 1% lineups for this iteration
+            top_1_percent = []
+            # The top 10% for this iteration
+            top_10_percent = []
+
+            # Simulate a tournament 1000 times
+            for i in range(1000):
+                field_lineups = {}
+                # random fpts expectation
+                temp_fpts_dict = {p: round((np.random.normal(stats['Fpts'], stats['StdDev'])), 2) for p,stats in self.player_dict.items()}
+
+                # find the realized fantasy points for this simulation
+                for lineup in remaining_pool:
+                    fpts_sim = sum(temp_fpts_dict[player] for player in lineup)
+                    field_lineups[fpts_sim] = lineup
+
+                # sort the dictionary descending
+                sorted_lineups = OrderedDict(sorted(dict.items(), key=lambda v: v, reverse=True))
+                
+                # append the winning lineup
+                winning_lineups.append(sorted_lineups[:1])
+
+                # append the top 1% lineups
+                one_p = math.floor(len(remaining_pool) / 100)
+                top_1_percent.append(sorted_lineups[:one_p])
+
+                # append the top 10% lineups
+                ten_p = math.floor(len(remaining_pool) / 10)
+                op_1_percent.append(sorted_lineups[:ten_p])
+
+                
+
         # From the pool of lineups, simulate a GPP
         # For each lineup in the pool, mark how often they win, finish top 1%, finish top 10%
         # Create some metric from the win%,1%,10%
