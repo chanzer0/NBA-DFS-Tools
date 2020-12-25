@@ -114,23 +114,28 @@ class NBA_GPP_Simulator:
         print(num_iterations + ' tournament simulations finished')
 
     def output(self):
+        unique = {}
+        for sim_pts, x in self.winning_lineups.items():
+            salary = sum(self.player_dict[player]['Salary'] for player in x)
+            fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
+            own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
+            lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],
+                fpts_p,sim_pts,salary,own_p
+            )
+            unique[fpts_p] = lineup_str
+
         with open(self.config['tourney_sim_path'], 'w') as f:
-            f.write('Lineup,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
-            for sim_pts, x in self.winning_lineups.items():
-                salary = sum(self.player_dict[player]['Salary'] for player in x)
-                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
-                own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                    x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],
-                    fpts_p,sim_pts,salary,own_p
-                )
+            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
+            for fpts, lineup_str in unique.items():
                 f.write('%s\n' % lineup_str)
+    
         with open('gpp_player_exposure_sim.csv', 'w') as f:
             f.write('Player,Win Own%,Field Own%,Projected Own%\n')
             players = set(x for l in self.field_lineups for x in l)
             for player in players:
                 field_own = sum([lineup.count(player) for lineup in self.field_lineups])/len(self.field_lineups)
-                win_own = sum([lineup.count(player) for _,lineup in self.winning_lineups.items()])/len(self.winning_lineups)
+                win_own = sum([lineup.count(player) for _,lineup in unique.items()])/len(unique)
                 proj_own = self.player_dict[player]['Ownership']
                 f.write('{},{}%,{}%,{}%\n'.format(player, round(win_own * 100, 2), round(field_own * 100, 2), proj_own))
         
