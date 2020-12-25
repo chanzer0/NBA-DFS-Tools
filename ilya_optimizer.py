@@ -23,7 +23,6 @@ class NBA_Ilya_Optimizer:
         self.load_config()
         self.load_projections(self.config['projection_path'])
         self.load_ownership(self.config['ownership_path'])
-        self.load_player_ids(self.config['player_path'])
         self.load_boom_bust(self.config['boombust_path'])
         self.output_filepath = self.config['output_path']
         self.num_lineups = self.config['num_lineups']
@@ -32,14 +31,6 @@ class NBA_Ilya_Optimizer:
     def load_config(self):
         with open('config.json') as json_file: 
             self.config = json.load(json_file) 
-
-    def load_player_ids(self, path):
-        with open(path) as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                player_name = row['Name'].replace('-', '#')
-                if player_name in self.player_dict:
-                    self.player_dict[player_name]['ID'] = int(row['ID'])
 
     def load_boom_bust(self, path):
         with open(path) as file:

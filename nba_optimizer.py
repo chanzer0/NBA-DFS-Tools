@@ -85,7 +85,6 @@ class NBA_Optimizer:
         lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
         # set the objective - maximize fpts
-        print(use_randomness)
         if use_randomness == 'rand':
             self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict), 'Objective'
         else:
@@ -136,17 +135,70 @@ class NBA_Optimizer:
                 self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
 
     def output(self):
+        unique = {}
+        for fpts, x in self.lineups.items():
+            salary = sum(self.player_dict[player]['Salary'] for player in x)
+            fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
+            own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
+            lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                x[0].replace('#', '-'),x[1].replace('#', '-'),
+                x[2].replace('#', '-'),x[3].replace('#', '-'),
+                x[4].replace('#', '-'),x[5].replace('#', '-'),
+                x[6].replace('#', '-'),x[7].replace('#', '-'),
+                round(fpts_p, 2),round(fpts, 2),salary,own_p
+            )
+            unique[fpts_p] = lineup_str
+
         with open(self.output_filepath, 'w') as f:
             f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
-            for fpts, x in self.lineups.items():
-                salary = sum(self.player_dict[player]['Salary'] for player in x)
-                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
-                own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                    x[0].replace('#', '-'),x[1].replace('#', '-'),
-                    x[2].replace('#', '-'),x[3].replace('#', '-'),
-                    x[4].replace('#', '-'),x[5].replace('#', '-'),
-                    x[6].replace('#', '-'),x[7].replace('#', '-'),
-                    round(fpts_p, 2),round(fpts, 2),salary,own_p
-                )
+            for fpts, lineup_str in unique.items():
                 f.write('%s\n' % lineup_str)
+
+    def format_lineups(self):
+        temp = self.lineups.items()
+        self.lineups = {}
+        finalized = [None] * 8
+        for fpts,lineup in temp:
+            for player in lineup:
+                if 'PG' in self.player_dict[player]['Position']:
+                    if finalized[0] is None:
+                        finalized[0] = player
+                    elif finalized[5] is None:
+                        finalized[5] = player
+                    else:
+                        finalized[6] = player
+
+                elif 'SG' in self.player_dict[player]['Position']:
+                    if finalized[1] is None:
+                        finalized[1] = player
+                    elif finalized[5] is None:
+                        finalized[5] = player
+                    else:
+                        finalized[6] = player
+
+                elif 'SF' in self.player_dict[player]['Position']:
+                    if finalized[2] is None:
+                        finalized[2] = player
+                    elif finalized[5] is None:
+                        finalized[5] = player
+                    else:
+                        finalized[6] = player
+
+                elif 'PF' in self.player_dict[player]['Position']:
+                    if finalized[3] is None:
+                        finalized[3] = player
+                    elif finalized[5] is None:
+                        finalized[5] = player
+                    else:
+                        finalized[6] = player
+
+                elif 'C' in self.player_dict[player]['Position']:
+                    if finalized[4] is None:
+                        finalized[4] = player
+                    elif finalized[5] is None:
+                        finalized[5] = player
+                    else:
+                        finalized[6] = player
+
+            self.lineups[fpts] = finalized
+            finalized = [None] * 7

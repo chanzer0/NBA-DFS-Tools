@@ -71,8 +71,8 @@ class NBA_Evolutionary_Lineup_Selector:
         remaining_pool = self.lineup_pool
         # While we still have more than the requisite 150 "surviving" lineups
         while len(remaining_pool) >= 150:
-            # Dict of lineup fitness metrics - e.g. key = lineup, value = times won, times top 10% and times top 10%
-            # {[player_a, player_b ...] : {'win%': x, 'top1%': y, 'top10%': z}}
+            # Dict of lineup fitness metrics - a lineup's ID will be tied to a fitness score
+            # {1: 23, 2: 14.5, .... so on}
             lineup_fitness = {}
             # The winning lineups for this iteration
             winning_lineups = []
@@ -88,9 +88,9 @@ class NBA_Evolutionary_Lineup_Selector:
                 temp_fpts_dict = {p: round((np.random.normal(stats['Fpts'], stats['StdDev'])), 2) for p,stats in self.player_dict.items()}
 
                 # find the realized fantasy points for this simulation
-                for lineup in remaining_pool:
+                for lineup_id,lineup in remaining_pool.items():
                     fpts_sim = sum(temp_fpts_dict[player] for player in lineup)
-                    field_lineups[fpts_sim] = lineup
+                    field_lineups[fpts_sim] = lineup_id
 
                 # sort the dictionary descending
                 sorted_lineups = OrderedDict(sorted(dict.items(), key=lambda v: v, reverse=True))
@@ -104,7 +104,16 @@ class NBA_Evolutionary_Lineup_Selector:
 
                 # append the top 10% lineups
                 ten_p = math.floor(len(remaining_pool) / 10)
-                op_1_percent.append(sorted_lineups[:ten_p])
+                top_10_percent.append(sorted_lineups[:ten_p])
+            
+
+            print(winning_lineups)
+            # Determine fitness score
+            # Fitness score = 10*win_percent + 5*top_1_percent + 1*top_10_percent
+            # for lineup_id in remaining_pool:
+            #     winning_percent = winning_lineups.count(lineup_id)
+
+
 
                 
 
