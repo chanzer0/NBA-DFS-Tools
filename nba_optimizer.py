@@ -147,7 +147,7 @@ class NBA_Optimizer:
                 x[6].replace('#', '-'),x[7].replace('#', '-'),
                 round(fpts_p, 2),round(fpts, 2),salary,own_p
             )
-            unique[fpts_p] = lineup_str
+            unique[round(fpts_p, 2)] = lineup_str
 
         with open(self.output_filepath, 'w') as f:
             f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')

@@ -21,7 +21,7 @@ class NBA_Ilya_Optimizer:
     def __init__(self):
         self.problem = LpProblem('NBA', LpMaximize)
         self.load_config()
-        self.load_projections(self.config['projection_path'])
+        self.load_projections('ilya_projections.csv')
         self.load_ownership(self.config['ownership_path'])
         self.load_boom_bust(self.config['boombust_path'])
         self.output_filepath = self.config['output_path']
@@ -55,7 +55,6 @@ class NBA_Ilya_Optimizer:
                 #some players have 2 positions - will be listed like 'PG/SF' or 'PF/C'
                 self.player_dict[player_name]['Position'] = [pos for pos in row['Position'].split('/')]
 
-                self.player_dict[player_name]['Salary'] = float(row['Salary'])
                 # need to pre-emptively set ownership to 0 as some players will not have ownership
                 # if a player does have ownership, it will be updated later on in load_ownership()
                 self.player_dict[player_name]['Salary'] = float(row['Salary'])
