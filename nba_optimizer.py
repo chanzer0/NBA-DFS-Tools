@@ -54,7 +54,7 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
 
                 #some players have 2 positions - will be listed like 'PG/SF' or 'PF/C'
@@ -136,22 +136,23 @@ class NBA_Optimizer:
 
     def output(self):
         unique = {}
-        for fpts, x in self.lineups.items():
-            salary = sum(self.player_dict[player]['Salary'] for player in x)
-            fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
-            own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-            lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                x[0].replace('#', '-'),x[1].replace('#', '-'),
-                x[2].replace('#', '-'),x[3].replace('#', '-'),
-                x[4].replace('#', '-'),x[5].replace('#', '-'),
-                x[6].replace('#', '-'),x[7].replace('#', '-'),
-                round(fpts_p, 2),round(fpts, 2),salary,own_p
-            )
-            unique[round(fpts_p, 2)] = lineup_str
+        for fpts,lineup in self.lineups.items():
+            if lineup not in unique.values():
+                unique[fpts] = lineup
 
         with open(self.output_filepath, 'w') as f:
             f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
-            for fpts, lineup_str in unique.items():
+            for fpts, x in unique.items():
+                salary = sum(self.player_dict[player]['Salary'] for player in x)
+                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
+                own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                    x[0].replace('#', '-'),x[1].replace('#', '-'),
+                    x[2].replace('#', '-'),x[3].replace('#', '-'),
+                    x[4].replace('#', '-'),x[5].replace('#', '-'),
+                    x[6].replace('#', '-'),x[7].replace('#', '-'),
+                    round(fpts_p, 2),round(fpts, 2),salary,own_p
+                )
                 f.write('%s\n' % lineup_str)
 
     def format_lineups(self):

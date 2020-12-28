@@ -96,7 +96,7 @@ class NBA_GPP_Simulator:
                 if (47000 <= salary <= 50000):
                     reject= False
             self.field_lineups.append(lineup)
-        print(num_lineups + ' field lineups successfully generated')
+        print(str(num_lineups) + ' field lineups successfully generated')
 
     def run_tournament_simulation(self, num_iterations):
         for i in range(int(num_iterations)):
@@ -111,7 +111,7 @@ class NBA_GPP_Simulator:
             self.winning_lineups[winning_lineup] = field_score[winning_lineup]
             # print(i)
 
-        print(num_iterations + ' tournament simulations finished')
+        print(str(num_iterations) + ' tournament simulations finished')
 
     def output(self):
         unique = {}

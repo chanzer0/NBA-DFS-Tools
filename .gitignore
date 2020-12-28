@@ -1,4 +1,5 @@
 *.csv
+*.json
 .vscode/*
 *.pyc
 setup.py

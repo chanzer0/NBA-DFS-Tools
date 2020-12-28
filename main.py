@@ -1,9 +1,12 @@
+
+
 import sys
 from nfl_optimizer import *
 from nba_optimizer import *
 from ilya_optimizer import *
 from nba_gpp_simulator import *
 from nba_evolutionary_lineup_selector import *
+from windows_inhibitor import *
 
 def main(flag, rest):
     if flag.lower() == 'nba':
@@ -23,13 +26,18 @@ def main(flag, rest):
         sim.output()
 
     elif flag.lower() == 'all':
+        osSleep = WindowsInhibitor()
+        osSleep.inhibit()
+    
         o = NBA_Optimizer()
-        o.optimize()
+        o.optimize('rand')
         o.output()
         sim = NBA_GPP_Simulator()
-        sim.generate_field_lineups(rest[2])
-        sim.run_tournament_simulation(rest[3])
+        sim.generate_field_lineups(25000)
+        sim.run_tournament_simulation(25000)
         sim.output()
+
+        osSleep.uninhibit()
 
     elif flag.lower() == 'evolutionary':
         selector = NBA_Evolutionary_Lineup_Selector()

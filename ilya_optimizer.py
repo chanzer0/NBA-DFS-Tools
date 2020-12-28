@@ -8,24 +8,18 @@ from datetime import datetime
 
 class NBA_Ilya_Optimizer:
     problem = None
-    config = None
-    output_filepath = None
     num_lineups = None
     player_dict = {}
-    player_positions = {'PG': {}, 'SG': {}, 'SF': {}, 'PF': {}, 'C': {}, 'F': {}, 'G': {}, 'UTIL': {}}
-    roster_construction = {'PG': 1, 'SG': 1, 'SF': 1, 'PF': 1, 'C': 1, 'F': 1, 'G': 1, 'UTIL': 1}
     max_salary = 70.0
     lineups = {}
     tournament_id = None
 
-    def __init__(self):
+    def __init__(self, num_lineups, use_rand):
         self.problem = LpProblem('NBA', LpMaximize)
-        self.load_config()
         self.load_projections('ilya_projections.csv')
-        self.load_ownership(self.config['ownership_path'])
-        self.load_boom_bust(self.config['boombust_path'])
-        self.output_filepath = self.config['output_path']
-        self.num_lineups = self.config['num_lineups']
+        self.load_boom_bust('boom_bust.csv')
+        self.num_lineups = num_lineups
+        self.use_rand = True if use_rand == 'rand' else False
 
     # Load config from file
     def load_config(self):
@@ -72,7 +66,7 @@ class NBA_Ilya_Optimizer:
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
-    def optimize(self, num_lineups):
+    def optimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
 
@@ -82,31 +76,35 @@ class NBA_Ilya_Optimizer:
         lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
         # set the objective - maximize fpts
-        self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict), 'Objective'
-
+        if self.use_rand:
+            print('use rand')
+            self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict)
+        else:
+            self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict)
+        
         # Set the salary constraints
         self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.max_salary
 
         # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'guard_point' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'guard_point' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'guard_shooting' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'guard_shooting' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'forward_small' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'forward_small' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'forward_power' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'forward_power' in self.player_dict[player]['Position']) <= 3
         # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 3
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'center' in self.player_dict[player]['Position']) >= 1
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'center' in self.player_dict[player]['Position']) <= 3
         # Can only roster 8 total players
         self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 7
 
         # Crunch!
-        for i in range(int(num_lineups)):
+        for i in range(int(self.num_lineups)):
             self.problem.solve(PULP_CBC_CMD(msg=0))
 
             score = str(self.problem.objective)
@@ -114,19 +112,22 @@ class NBA_Ilya_Optimizer:
                 score = score.replace(v.name, str(v.varValue))
 
             print(i)
-
             player_names = [v.name.replace('_', ' ') for v in self.problem.variables() if v.varValue != 0]
             fpts = eval(score)
             self.lineups[fpts] = player_names
 
             # Dont generate the same lineup twice
-            # Enforce this by lowering the objective i.e. producing sub-optimal results
-            self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
+            if self.use_rand:
+                self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict)
+            else:
+                self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
            
 
     def output(self):
+        print(self.lineups)
         self.format_lineups()
-        with open('ilya/optimal_lineups_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
+        print(self.lineups)
+        with open('optimal_lineups_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('guard_point,guard_shooting,forward_small,forward_power,center,flex,flex,Fpts Projection,Salary,\n')
             for fpts, x in self.lineups.items():
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
@@ -141,7 +142,7 @@ class NBA_Ilya_Optimizer:
                     round(fpts, 2),round(salary, 2)
                 )
                 f.write('%s\n' % lineup_str)
-        with open('ilya/optimal_lineups_upload_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
+        with open('optimal_lineups_upload_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('tournament_id,guard_point,guard_shooting,forward_small,forward_power,center,flex,flex\n')
             for fpts, x in self.lineups.items():
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
@@ -164,7 +165,7 @@ class NBA_Ilya_Optimizer:
         finalized = [None] * 7
         for fpts,lineup in temp:
             for player in lineup:
-                if 'PG' in self.player_dict[player]['Position']:
+                if 'guard_point' in self.player_dict[player]['Position']:
                     if finalized[0] is None:
                         finalized[0] = player
                     elif finalized[5] is None:
@@ -172,7 +173,7 @@ class NBA_Ilya_Optimizer:
                     else:
                         finalized[6] = player
 
-                elif 'SG' in self.player_dict[player]['Position']:
+                elif 'guard_shooting' in self.player_dict[player]['Position']:
                     if finalized[1] is None:
                         finalized[1] = player
                     elif finalized[5] is None:
@@ -180,7 +181,7 @@ class NBA_Ilya_Optimizer:
                     else:
                         finalized[6] = player
 
-                elif 'SF' in self.player_dict[player]['Position']:
+                elif 'forward_small' in self.player_dict[player]['Position']:
                     if finalized[2] is None:
                         finalized[2] = player
                     elif finalized[5] is None:
@@ -188,7 +189,7 @@ class NBA_Ilya_Optimizer:
                     else:
                         finalized[6] = player
 
-                elif 'PF' in self.player_dict[player]['Position']:
+                elif 'forward_power' in self.player_dict[player]['Position']:
                     if finalized[3] is None:
                         finalized[3] = player
                     elif finalized[5] is None:
@@ -196,7 +197,7 @@ class NBA_Ilya_Optimizer:
                     else:
                         finalized[6] = player
 
-                elif 'C' in self.player_dict[player]['Position']:
+                elif 'center' in self.player_dict[player]['Position']:
                     if finalized[4] is None:
                         finalized[4] = player
                     elif finalized[5] is None:
@@ -206,3 +207,14 @@ class NBA_Ilya_Optimizer:
 
             self.lineups[fpts] = finalized
             finalized = [None] * 7
+
+def main(num_lineups, use_rand):
+    opto = NBA_Ilya_Optimizer(num_lineups, use_rand)
+    opto.optimize()
+    opto.output()
+
+if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        main(sys.argv[1], sys.argv[2])
+    else:
+        main(sys.argv[1], None)
