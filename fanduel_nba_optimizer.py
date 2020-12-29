@@ -53,7 +53,7 @@ class FD_NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
 
                 #some players have 2 positions - will be listed like 'PG/SF' or 'PF/C'
