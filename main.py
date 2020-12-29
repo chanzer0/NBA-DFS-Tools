@@ -5,12 +5,18 @@ from nfl_optimizer import *
 from nba_optimizer import *
 from ilya_optimizer import *
 from nba_gpp_simulator import *
+from fanduel_nba_optimizer import *
 from nba_evolutionary_lineup_selector import *
 from windows_inhibitor import *
 
 def main(flag, rest):
     if flag.lower() == 'nba':
         o = NBA_Optimizer()
+        o.optimize(rest[2])
+        o.output()
+
+    elif flag.lower() == 'fd':
+        o = FD_NBA_Optimizer()
         o.optimize(rest[2])
         o.output()
 
@@ -33,8 +39,8 @@ def main(flag, rest):
         o.optimize('rand')
         o.output()
         sim = NBA_GPP_Simulator()
-        sim.generate_field_lineups(25000)
-        sim.run_tournament_simulation(25000)
+        sim.generate_field_lineups(10000)
+        sim.run_tournament_simulation(10000)
         sim.output()
 
         osSleep.uninhibit()

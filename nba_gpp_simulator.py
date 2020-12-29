@@ -82,6 +82,7 @@ class NBA_GPP_Simulator:
 
     def generate_field_lineups(self, num_lineups):
         for i in range(int(num_lineups)):
+            random.shuffle(self.roster_construction)
             reject = True
             while reject:
                 salary = 0
