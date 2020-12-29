@@ -30,7 +30,7 @@ class FD_NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name']
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0, 'In Lineup': False}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'In Lineup': False}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Position'] = row['Position']
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
@@ -68,7 +68,6 @@ class FD_NBA_GPP_Simulator:
 
     def generate_field_lineups(self, num_lineups):
         for i in range(int(num_lineups)):
-            random.shuffle(self.roster_construction)
             reject = True
             while reject:
                 salary = 0

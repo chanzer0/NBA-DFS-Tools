@@ -23,8 +23,8 @@ def main(flag, rest):
         o.optimize('rand')
         o.output()
         sim = FD_NBA_GPP_Simulator()
-        sim.generate_field_lineups(25000)
-        sim.run_tournament_simulation(25000)
+        sim.generate_field_lineups(10000)
+        sim.run_tournament_simulation(10000)
         sim.output()
         osSleep.uninhibit()
 
