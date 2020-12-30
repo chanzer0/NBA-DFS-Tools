@@ -14,7 +14,6 @@ class NBA_Optimizer:
     lineups = {}
     unique_dict = {}
     player_dict = {}
-    max_salary = 50000
 
     def __init__(self, site, num_lineups, use_randomness, num_uniques):
         self.site = site
@@ -52,7 +51,7 @@ class NBA_Optimizer:
                     if self.site == 'dk':
                         self.player_dict[player_name]['ID'] = int(row['ID'])
                     else:
-                        self.player_dict[player_name]['ID'] = int(str(row['Id']).split('-')[1])
+                        self.player_dict[player_name]['ID'] = row['Id']
 
 
     # Need standard deviations to perform randomness
@@ -106,7 +105,8 @@ class NBA_Optimizer:
             self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict), 'Objective'
 
         # Set the salary constraints
-        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.max_salary
+        max_salary = 50000 if self.site == 'dk' else 60000
+        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= max_salary
 
         if self.site == 'dk':
             # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
