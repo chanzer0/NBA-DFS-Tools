@@ -1,8 +1,7 @@
-import json
-import csv
-import os
+import json, csv, os
 import numpy as np
 from pulp import *
+from itertools import groupby
 
 class NBA_Optimizer:
     site = None
@@ -13,13 +12,14 @@ class NBA_Optimizer:
     num_uniques = None
     use_randomness = None
     lineups = {}
+    unique_dict = {}
     player_dict = {}
     max_salary = 50000
 
     def __init__(self, site, num_lineups, use_randomness, num_uniques):
         self.site = site
         self.num_lineups = int(num_lineups)
-        # self.num_uniques = int(num_uniques)
+        self.num_uniques = int(num_uniques)
         self.use_randomness = use_randomness == 'rand'
         self.load_config()
         self.problem = LpProblem('NBA', LpMaximize)
@@ -49,8 +49,11 @@ class NBA_Optimizer:
                 name_key = 'Name' if self.site == 'dk' else 'Nickname'
                 player_name = row[name_key].replace('-', '#')
                 if player_name in self.player_dict:
-                    id_key = 'ID' if self.site == 'dk' else 'Id'
-                    self.player_dict[player_name]['ID'] = row[id_key]
+                    if self.site == 'dk':
+                        self.player_dict[player_name]['ID'] = int(row['ID'])
+                    else:
+                        self.player_dict[player_name]['ID'] = int(str(row['Id']).split('-')[1])
+
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
@@ -94,16 +97,11 @@ class NBA_Optimizer:
 
         # We want to create a variable for each roster slot. 
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
-        # lp_variables = {'PG': 'LeBron James' : 'PG_LeBron James', 'Kyrie Irving': 'PG_Kyrie_Irving', .... , 'SG' : .... , etc... }
         lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
 
         # set the objective - maximize fpts
         if self.use_randomness:
             self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict), 'Objective'
-            # Enforce number of unique players between lineups
-            # data = sorted(self.players_dict.items(), key=self.sort_players)
-            # for player_id, group_iterator in groupby(data, key=self.sort_players):
-            #     group = list(group_iterator)
         else:
             self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict), 'Objective'
 
@@ -145,7 +143,10 @@ class NBA_Optimizer:
 
         # Crunch!
         for i in range(self.num_lineups):
-            self.problem.solve(PULP_CBC_CMD(msg=0))
+            try:
+                self.problem.solve(PULP_CBC_CMD(msg=0))
+            except PulpSolverError:
+                print('Infeasibility reached - only generated {} lineups out of {}. Continuing with export.'.format(len(self.num_lineups), self.num_lineups))
 
             score = str(self.problem.objective)
             for v in self.problem.variables():
@@ -166,7 +167,33 @@ class NBA_Optimizer:
                 # Set a new random fpts projection within their distribution
                 self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
 
+            # Set number of unique players between lineups
+            # data = sorted(self.player_dict.items())
+            # for player_id, group_iterator in groupby(data):
+            #     group = list(group_iterator)
+            #     print(group)
+            #     if len(group) == 1:
+            #         continue
+            #     variables = [variable for player, variable in group]
+            #     solver.add_constraint(variables, None, SolverSign.LTE, 1)
+            #     print(variables)
+            # self.problem += len([ _id for _id in [self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict] if _id not in set(player_names)]) >= self.num_uniques
+
+
     def output(self):
+        num_uniq_lineups = self.lineups
+        self.lineups = {}
+        for fpts,lineup in num_uniq_lineups.items():
+            temp_lineups = list(num_uniq_lineups.values())
+            temp_lineups.remove(lineup)
+            use_lineup = True
+            for x in temp_lineups:
+                uniques = list(set(x) ^ set(lineup))
+                if len(uniques) < self.num_uniques:
+                    use_lineup = False
+            if use_lineup:
+                self.lineups[fpts] = lineup
+                
         self.format_lineups()
 
         unique = {}
@@ -265,10 +292,10 @@ class NBA_Optimizer:
                 finalized = [None] * 7
 
         else:
-            temp = self.lineups.items()
+            temp = self.lineups
             self.lineups = {}
             finalized = [None] * 9
-            for fpts,lineup in temp:
+            for fpts,lineup in temp.items():
                 for player in lineup:
                     if 'PG' == self.player_dict[player]['Position']:
                         if finalized[0] is None:
@@ -293,5 +320,5 @@ class NBA_Optimizer:
                     else:
                         finalized[8] = player
 
-            self.lineups[fpts] = finalized
-            finalized = [None] * 9
+                self.lineups[fpts] = finalized
+                finalized = [None] * 9

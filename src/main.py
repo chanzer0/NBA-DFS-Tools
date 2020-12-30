@@ -17,8 +17,9 @@ def main(arguments):
     process = arguments[2]
     if process == 'opto':
         num_lineups = arguments[3]
-        use_randomness = arguments[4]
-        opto = NBA_Optimizer(site, num_lineups, use_randomness, None)
+        num_uniques = arguments[4]
+        use_randomness = arguments[5]
+        opto = NBA_Optimizer(site, num_lineups, use_randomness, num_uniques)
         opto.optimize()
         opto.output()
 
