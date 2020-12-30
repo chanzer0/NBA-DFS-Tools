@@ -2,9 +2,5 @@
     "projection_path": "projections.csv",
     "ownership_path": "ownership.csv",
     "player_path": "player_ids.csv",
-    "boombust_path": "boom_bust.csv",
-    "output_path": "optimal_lineups.csv",
-    "tourney_sim_path": "gpp_sim.csv",
-    "num_lineups": 10000,
-    "site": "DK"
+    "boom_bust_path": "boom_bust.csv"
 }

@@ -1,6 +1,8 @@
-import fileinput
+import fileinput, os
 
-with fileinput.FileInput('projections.csv', inplace=True) as file:
+
+projection_path = os.path.join(os.path.dirname(__file__), '../fd_data/projections.csv')
+with fileinput.FileInput(projection_path, inplace=True) as file:
     for line in file:
         print(line.replace('III', '')
         .replace('II','')
@@ -10,6 +12,7 @@ with fileinput.FileInput('projections.csv', inplace=True) as file:
         .replace('Moe Harkless', 'Maurice Harkless')
         .replace(' \"', '\"'), end='')
 
+ownership_path = os.path.join(os.path.dirname(__file__), '../fd_data/ownership.csv')
 with fileinput.FileInput('ownership.csv', inplace=True) as file:
     for line in file:
         print(line.replace('III', '')

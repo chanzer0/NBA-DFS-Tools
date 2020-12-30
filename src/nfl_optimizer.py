@@ -1,11 +1,12 @@
 import json
 import csv
+import os
 from pulp import *
 
 class NFL_Optimizer:
     problem = None
     config = None
-    output_filepath = None
+    output_dir = None
     num_lineups = None
     player_projections = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
     player_salaries = {'QB': {}, 'RB': {}, 'WR': {}, 'TE': {}, 'DST': {}}
@@ -19,12 +20,12 @@ class NFL_Optimizer:
         self.load_config()
         self.load_projections(self.config['projection_path'])
         self.load_ownership(self.config['ownership_path'])
-        self.output_filepath = self.config['output_path']
+        self.output_dir = self.config['output_dir']
         self.num_lineups = self.config['num_lineups']
 
     # Load config from file
     def load_config(self):
-        with open('config.json') as json_file: 
+        with open(os.path.join(os.path.dirname(__file__), '../config.json')) as json_file: 
             self.config = json.load(json_file) 
 
     # Load projections from file
@@ -90,7 +91,7 @@ class NFL_Optimizer:
         print('Score:')
         score_pretty = ' + '.join(re.findall('[0-9\.]+\*1.0', score))
         print('{} = {}'.format(score_pretty, eval(score)))
-        # with open(self.output_filepath, 'w') as f:
+        # with open(self.output_dir, 'w') as f:
         #     f.write('QB,RB,RB,WR,WR,WR,TE,FLEX,DST,Fpts,Salary,Ownership\n')
         #     for x in final:
         #         fpts = sum(float(projection_dict[player]['Fpts']) for player in x)
