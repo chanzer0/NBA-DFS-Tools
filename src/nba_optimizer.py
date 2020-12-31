@@ -188,9 +188,11 @@ class NBA_Optimizer:
             temp_lineups.remove(lineup)
             use_lineup = True
             for x in temp_lineups:
-                uniques = list(set(x) ^ set(lineup))
-                if len(uniques) < self.num_uniques:
+                common_players = set(x) & set(lineup)
+                if (8 - len(common_players)) < self.num_uniques:
                     use_lineup = False
+                    break
+
             if use_lineup:
                 self.lineups[fpts] = lineup
                 
@@ -243,7 +245,6 @@ class NBA_Optimizer:
                     f.write('%s\n' % lineup_str)
 
     def format_lineups(self):
-        
         # TODO - fix dk
         if self.site == 'dk':
             return
