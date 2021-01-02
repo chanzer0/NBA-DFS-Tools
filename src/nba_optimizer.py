@@ -195,10 +195,16 @@ class NBA_Optimizer:
 
 
     def output(self):
-        num_uniq_lineups = OrderedDict(sorted(self.lineups.items(), reverse=True, key=lambda t: t[0]))
-        print(num_uniq_lineups)
+        unique = {}
+        for fpts,lineup in self.lineups.items():
+            if lineup not in unique.values():
+                unique[fpts] = lineup
+
+        self.lineups = unique
+        self.format_lineups()
+        num_uniq_lineups = OrderedDict(sorted(self.lineups.items(), reverse=False, key=lambda t: t[0]))
         self.lineups = {}
-        for fpts,lineup in num_uniq_lineups.items():
+        for fpts,lineup in num_uniq_lineups.copy().items():
             temp_lineups = list(num_uniq_lineups.values())
             temp_lineups.remove(lineup)
             use_lineup = True
@@ -212,20 +218,13 @@ class NBA_Optimizer:
 
             if use_lineup:
                 self.lineups[fpts] = lineup
-                
-        self.format_lineups()
-
-        unique = {}
-        for fpts,lineup in self.lineups.items():
-            if lineup not in unique.values():
-                unique[fpts] = lineup
-                
+                  
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
                 
-                f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Boom,Bust,Minutes,Boom,Bust\n')
-                for fpts, x in unique.items():
+                f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Minutes,Boom,Bust\n')
+                for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
@@ -246,7 +245,7 @@ class NBA_Optimizer:
                     f.write('%s\n' % lineup_str)
             else:
                 f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Fpts Sim,Salary,Own. Product,Minutes,Boom,Bust\n')
-                for fpts, x in unique.items():
+                for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
