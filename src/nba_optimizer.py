@@ -34,9 +34,6 @@ class NBA_Optimizer:
 
         boom_bust_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['boom_bust_path']))
         self.load_boom_bust(boom_bust_path)
-
-        stats_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['stats_path']))
-        self.load_stats(stats_path)
         
     # Load config from file
     def load_config(self):
@@ -68,15 +65,6 @@ class NBA_Optimizer:
                     self.player_dict[player_name]['Boom'] = float(row['Boom%'])
                     self.player_dict[player_name]['Bust'] = float(row['Bust%'])
 
-    # Load projected stats (minutes)
-    def load_stats(self, path):
-        with open(path) as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                player_name = row['Name'].replace('-', '#')
-                if player_name in self.player_dict:
-                    self.player_dict[player_name]['Minutes'] = int(row['Proj minutes'])
-
     # Load projections from file
     def load_projections(self, path):
         # Read projections into a dictionary
@@ -87,6 +75,7 @@ class NBA_Optimizer:
                 self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'Minutes': 0, 'Boom': 0, 'Bust': 0}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
+                self.player_dict[player_name]['Minutes'] = int(row['Minutes'])
 
                 # Need to handle MPE on draftkings
                 if self.site == 'dk':
@@ -138,6 +127,10 @@ class NBA_Optimizer:
             # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
             self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
             self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 2
+            # Need at least 3 guards (PG,SG,G)
+            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']) >= 3
+            # Need at least 3 forwards (SF,PF,F)
+            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
             # Can only roster 8 total players
             self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 8
         else:
