@@ -26,6 +26,10 @@ def main(arguments):
     elif process == 'sim':
         pass
 
+    elif process == 'swaptimize':
+        opto = NBA_Optimizer(site)
+        opto.swaptimize()
+
 
 if __name__ == "__main__":
     main(sys.argv)
