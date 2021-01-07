@@ -124,9 +124,7 @@ class NBA_Ilya_Optimizer:
            
 
     def output(self):
-        print(self.lineups)
         self.format_lineups()
-        print(self.lineups)
         with open('optimal_lineups_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('guard_point,guard_shooting,forward_small,forward_power,center,flex,flex,Fpts Projection,Salary,\n')
             for fpts, x in self.lineups.items():
@@ -157,7 +155,15 @@ class NBA_Ilya_Optimizer:
                     self.player_dict[x[6]]['ID']
                 )
                 f.write('%s\n' % lineup_str)
-             
+        with open('player_exposure_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
+            f.write('player_name,in,total,exposure%')
+            players = set(x for l in self.lineups.values() for x in l)
+            total = len(self.lineups.values())
+            for player in players:
+                lineups_in = sum([lineup.count(player) for lineup in self.lineups.values()])
+                exposure = round(lineups_in/total * 100, 2)
+                exposure_str = '{},{},{},{}%'.format(player.replace('#','-'),lineups_in,total,exposure)
+                f.write('%s\n' % exposure_str)
 
     def format_lineups(self):
         temp = self.lineups.items()
