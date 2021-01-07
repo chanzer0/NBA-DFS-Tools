@@ -26,8 +26,8 @@ To run the tools, the generic usage template is as follows:
 
 Where:
 `<site>` is:
-- `dk` for DraftKigns
-- `fd` for FanDuel
+- `dk` for DraftKings. Note for DraftKings, players are output in alphabetical order and must be re-ordered into their positions before uploading back to DK.
+- `fd` for FanDuel. Note for FanDuel, you must also run `python .\name_change.py` before any crunching, as some player names differ between Awesemo projections and FanDuel's player data
 
 `<process>` is: 
 - `opto` for running optimal lineup crunches, with or without randomness
