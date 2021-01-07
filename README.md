@@ -50,4 +50,6 @@ The image below shows what the shell/terminal should look like when executing th
 ![Example usage](readme_images/usage.png)
 
 ## Output
-Data is stored in the `output/` directory. Note that subsequent runs of the tool will overwrite previous output files, so either move them or rename them if you wish to preseve them.
+Data is stored in the `output/` directory. Note that subsequent runs of the tool will overwrite previous output files, so either move them or rename them if you wish to preseve them. From there, you may upload these `.csv` files into Excel, and "pretty them up" - this can be seen below 
+
+![Example output](readme_images/output.png)
