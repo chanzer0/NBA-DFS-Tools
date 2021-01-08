@@ -1,5 +1,5 @@
 # NBA Optimizer and GPP Utilities
-Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, along with other tools you might find useful in helping you win your Cash games, Head-to-heads and Tournaments. You'll find installation and usage instructions below
+Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, along with other tools you might find useful in helping you win your Cash games, Head-to-heads and Tournaments. You'll find installation and usage instructions below. Data input is in the format of [Awesemo](https://www.awesemo.com/join/#/) CSV export. Awesemo has great player projection and ownership predictions that can't be matched. Sign up and join in premium slack where DFS pros, including Alex "Awesemo" Baker himself, can answer your quetsions and help you win.
 
 ## Installation
 ### System requirements
