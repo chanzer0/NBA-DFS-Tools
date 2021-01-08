@@ -24,7 +24,13 @@ def main(arguments):
         opto.output()
 
     elif process == 'sim':
-        pass
+        site = arguments[1]
+        field_size = arguments[3]
+        num_iterations = arguments[4]
+        sim = NBA_GPP_Simulator(site, field_size, num_iterations)
+        sim.generate_field_lineups()
+        sim.run_tournament_simulation()
+        sim.output()
 
     elif process == 'swaptimize':
         opto = NBA_Optimizer(site)

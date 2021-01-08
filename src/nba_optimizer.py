@@ -239,6 +239,7 @@ class NBA_Optimizer:
 
 
     def output(self):
+        print('Lineups done generating. Outputting.')
         unique = {}
         for fpts,lineup in self.lineups.items():
             if lineup not in unique.values():
@@ -309,6 +310,7 @@ class NBA_Optimizer:
                         round(fpts_p, 2),round(fpts, 2),salary,own_p,mins,boom,bust
                     )
                     f.write('%s\n' % lineup_str)
+        print('Output done.')
 
     def format_lineups(self):
         # TODO - fix dk

@@ -1,26 +1,95 @@
-import json
-import csv
-import math
+import json, os, csv, math, random, pulp, heapq
 import numpy as np
-import random
+
 
 class NBA_GPP_Simulator:
     config = None
     player_dict = {}
-    field_lineups = []
-    winning_lineups = {}
-    roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G', 'UTIL']
+    field_lineups = {}
+    roster_construction = []
+    salary = None
+    optimal_score = None
+    field_size = None
+    num_iterations = None
+    site = None
 
-    def __init__(self):
+    def __init__(self, site, field_size, num_iterations):
+        self.site = site
         self.load_config()
-        self.load_projections(self.config['projection_path'])
-        self.load_ownership(self.config['ownership_path'])
-        self.load_boom_bust(self.config['boom_bust_path'])
+        projection_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['projection_path']))
+        self.load_projections(projection_path)
+
+        ownership_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['ownership_path']))
+        self.load_ownership(ownership_path)
+
+        boom_bust_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['boom_bust_path']))
+        self.load_boom_bust(boom_bust_path)
+
+        self.get_optimal()
+        if site == 'dk':
+            self.roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G', 'UTIL']
+            self.salary = 50000
+        elif site == 'fd':
+            self.roster_construction = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
+            self.salary = 60000
+
+        self.field_size = int(field_size)
+        self.num_iterations = int(num_iterations)
+
+    # In order to make reasonable tournament lineups ,we want to be close enough to the optimal that 
+    # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
+    def get_optimal(self):
+        problem = pulp.LpProblem('NBA', pulp.LpMaximize)
+        lp_variables = {player: pulp.LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
+        problem += pulp.lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict)
+        problem += pulp.lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.salary
+        if self.site == 'dk':
+            # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 1
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) <= 3
+            # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) >= 1
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) <= 3
+            # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) >= 1
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) <= 3
+            # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) >= 1
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) <= 3
+            # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 2
+            # Need at least 3 guards (PG,SG,G)
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']) >= 3
+            # Need at least 3 forwards (SF,PF,F)
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
+            # Can only roster 8 total players
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict) == 8
+        else:
+            # Need 2 PG
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' == self.player_dict[player]['Position']) == 2
+            # Need 2 SG
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' == self.player_dict[player]['Position']) == 2
+            # Need 2 SF
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' == self.player_dict[player]['Position']) == 2
+            # Need 2 PF
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' == self.player_dict[player]['Position']) == 2
+            # Need 1 center
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' == self.player_dict[player]['Position']) == 1
+            # Can only roster 9 total players
+            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict) == 9
+        
+        problem.solve(pulp.PULP_CBC_CMD(msg=0))
+        score = str(problem.objective)
+        for v in problem.variables():
+            score = score.replace(v.name, str(v.varValue))
+
+        self.optimal_score = eval(score)
 
 
     # Load config from file
     def load_config(self):
-        with open('config.json') as json_file: 
+        with open(os.path.join(os.path.dirname(__file__), '../config.json')) as json_file: 
             self.config = json.load(json_file)
          
     # Load projections from file
@@ -32,24 +101,23 @@ class NBA_GPP_Simulator:
                 player_name = row['Name']
                 self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'In Lineup': False}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
+                self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
 
                 #some players have 2 positions - will be listed like 'PG/SF' or 'PF/C'
-                self.player_dict[player_name]['Position'] = [pos for pos in row['Position'].split('/')]
+                if self.site == 'dk':
+                    self.player_dict[player_name]['Position'] = [pos for pos in row['Position'].split('/')]
 
-                if 'PG' in self.player_dict[player_name]['Position'] or 'SG' in self.player_dict[player_name]['Position']:
-                    self.player_dict[player_name]['Position'].append('G')
+                    if 'PG' in self.player_dict[player_name]['Position'] or 'SG' in self.player_dict[player_name]['Position']:
+                        self.player_dict[player_name]['Position'].append('G')
 
-                if 'SF' in self.player_dict[player_name]['Position'] or 'PF' in self.player_dict[player_name]['Position']:
-                    self.player_dict[player_name]['Position'].append('F')
+                    if 'SF' in self.player_dict[player_name]['Position'] or 'PF' in self.player_dict[player_name]['Position']:
+                        self.player_dict[player_name]['Position'].append('F')
 
-                self.player_dict[player_name]['Position'].append('UTIL')
+                    self.player_dict[player_name]['Position'].append('UTIL')
+                elif self.site == 'fd':
+                    self.player_dict[player_name]['Position'] = row['Position']
 
-
-                self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
-                # need to pre-emptively set ownership to 0 as some players will not have ownership
-                # if a player does have ownership, it will be updated later on in load_ownership()
-                self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
-                
+   
     # Load ownership from file
     def load_ownership(self, path):
         # Read ownership into a dictionary
@@ -74,16 +142,24 @@ class NBA_GPP_Simulator:
         prob_list = []
         for player in self.player_dict:
             if self.player_dict[player]['In Lineup'] == False:
-                if position in self.player_dict[player]['Position']:
+                should_use = False
+                if self.site == 'dk':
+                    if position in self.player_dict[player]['Position']:
+                        should_use = True
+
+                elif self.site ==  'fd':
+                    if position == self.player_dict[player]['Position']:
+                        should_use = True
+                
+                if should_use:
                     plyr_list.append(player)
-                    prob_list.append(self.player_dict[player]['Ownership'])
+                    prob_list.append(self.player_dict[player]['Ownership'])        
                     
         prob_list = [float(i)/sum(prob_list) for i in prob_list]
         return np.random.choice(a=plyr_list, p=prob_list)
 
-    def generate_field_lineups(self, num_lineups):
-        for i in range(int(num_lineups)):
-            random.shuffle(self.roster_construction)
+    def generate_field_lineups(self):
+        for i in range(self.field_size):
             reject = True
             while reject:
                 salary = 0
@@ -95,49 +171,83 @@ class NBA_GPP_Simulator:
                     self.player_dict[x]['In Lineup'] = True
                     lineup.append(x)
                     salary += self.player_dict[x]['Salary']
-                if (47000 <= salary <= 50000):
-                    reject= False
-            self.field_lineups.append(lineup)
-        print(str(num_lineups) + ' field lineups successfully generated')
+                # Must have a reasonable salary
+                if ((self.salary - (2000 if self.site == 'fd' else 1000)) <= salary <= self.salary):
+                    # Must have a reasonable projection
+                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= (self.optimal_score - (0.15*self.optimal_score))):
+                        reject= False
 
-    def run_tournament_simulation(self, num_iterations):
-        for i in range(int(num_iterations)):
+            self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0}
+
+        print(str(self.field_size) + ' field lineups successfully generated')
+
+    def run_tournament_simulation(self):
+        print('Running ' + str(self.num_iterations) + ' simulations')
+        for i in range(self.num_iterations):
             temp_fpts_dict = {p: round((np.random.normal(stats['Fpts'], stats['StdDev'])), 2) for p,stats in self.player_dict.items()}
             field_score = {}
 
-            for lineup in self.field_lineups:
-                fpts_sim = sum(temp_fpts_dict[player] for player in lineup)
-                field_score[fpts_sim] = lineup
+            for index,values in self.field_lineups.items():
+                fpts_sim = sum(temp_fpts_dict[player] for player in values['Lineup'])
+                field_score[index] = {'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
 
-            winning_lineup = max(field_score, key=float)
-            self.winning_lineups[winning_lineup] = field_score[winning_lineup]
-            # print(i)
+            # Get the top 10 scores for the sim
+            top_10 = heapq.nlargest(10, field_score.values(), key=lambda x: x['Fpts'])
+            for lineup in top_10:
+                if lineup == top_10[0]:
+                    self.field_lineups[lineup['Index']]['Wins'] = self.field_lineups[lineup['Index']]['Wins'] + 1
 
-        print(str(num_iterations) + ' tournament simulations finished')
+                self.field_lineups[lineup['Index']]['Top10'] = self.field_lineups[lineup['Index']]['Top10'] + 1
+
+        print(str(self.num_iterations) + ' tournament simulations finished. Outputting.')
 
     def output(self):
         unique = {}
-        for sim_pts, x in self.winning_lineups.items():
-            salary = sum(self.player_dict[player]['Salary'] for player in x)
-            fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
-            own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x])
-            lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],
-                fpts_p,sim_pts,salary,own_p
-            )
-            unique[fpts_p] = lineup_str
+        for index, x in self.field_lineups.items():
+            salary = sum(self.player_dict[player]['Salary'] for player in x['Lineup'])
+            fpts_p = sum(self.player_dict[player]['Fpts'] for player in x['Lineup'])
+            own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x['Lineup']])
+            win_p = round(x['Wins']/self.num_iterations * 100, 2)
+            top10_p = round(x['Top10']/self.num_iterations / 10 * 100, 2)
+            if self.site == 'dk':
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
+                    x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],
+                    fpts_p,salary,win_p,top10_p,own_p
+                )
+            elif self.site == 'fd':
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
+                    x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
+                    fpts_p,salary,win_p,top10_p,own_p
+                )
+            unique[index] = lineup_str
 
-        with open(self.config['tourney_sim_path'], 'w') as f:
-            f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product\n')
+        out_path = os.path.join(os.path.dirname(__file__), '../output/{}_gpp_sim_lineups_{}_{}.csv'.format(self.site, self.field_size, self.num_iterations))
+        with open(out_path, 'w') as f:
+            if self.site == 'dk':
+                f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Salary,Win %,Top 10%,Proj. Own. Product\n')
+            elif self.site == 'fd':
+                f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Salary,Win %,Top 10%,Proj. Own. Product\n')
+
             for fpts, lineup_str in unique.items():
                 f.write('%s\n' % lineup_str)
     
-        with open('gpp_player_exposure_sim.csv', 'w') as f:
-            f.write('Player,Win Own%,Field Own%,Projected Own%\n')
-            players = set(x for l in self.field_lineups for x in l)
-            for player in players:
-                field_own = sum([lineup.count(player) for lineup in self.field_lineups])/len(self.field_lineups)
-                win_own = sum([lineup.count(player) for _,lineup in unique.items()])/len(unique)
+        out_path = os.path.join(os.path.dirname(__file__), '../output/{}_gpp_sim_player_exposure_{}_{}.csv'.format(self.site, self.field_size, self.num_iterations))
+        with open(out_path, 'w') as f:
+            f.write('Player,Win%,Top10%,Sim Field Own%,Projected Own%\n')
+            unique_players = {}
+            for val in self.field_lineups.values():
+                for player in val['Lineup']:
+                    if player not in unique_players:
+                        unique_players[player] = {'Wins': val['Wins'], 'Top10':val['Top10'], 'In': 1}
+                    else:
+                        unique_players[player]['Wins'] = unique_players[player]['Wins'] + val['Wins']
+                        unique_players[player]['Top10'] = unique_players[player]['Top10'] + val['Top10']
+                        unique_players[player]['In'] = unique_players[player]['In'] + 1
+
+            for player,data in unique_players.items():
+                field_p = round(data['In']/self.field_size * 100, 2)
+                win_p = round(data['Wins']/self.num_iterations * 100, 2)
+                top10_p = round(data['Top10']/self.num_iterations / 10 * 100, 2)
                 proj_own = self.player_dict[player]['Ownership']
-                f.write('{},{}%,{}%,{}%\n'.format(player, round(win_own * 100, 2), round(field_own * 100, 2), proj_own))
+                f.write('{},{}%,{}%,{}%,{}%\n'.format(player, win_p, top10_p, field_p, proj_own))
         
