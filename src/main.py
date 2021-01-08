@@ -25,9 +25,18 @@ def main(arguments):
 
     elif process == 'sim':
         site = arguments[1]
-        field_size = arguments[3]
-        num_iterations = arguments[4]
-        sim = NBA_GPP_Simulator(site, field_size, num_iterations)
+        field_size = -1
+        num_iterations = -1
+        contest_id = -1
+        # 100691372
+        if arguments[3] == 'cid':
+            contest_id = arguments[4]
+            num_iterations = arguments[5]
+        else:
+            field_size = arguments[3]
+            num_iterations = arguments[4]
+
+        sim = NBA_GPP_Simulator(site, field_size, num_iterations, contest_id)
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
         sim.output()

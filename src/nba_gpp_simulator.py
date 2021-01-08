@@ -1,5 +1,6 @@
 import json, os, csv, math, random, pulp, heapq
 import numpy as np
+from draft_kings import *
 
 
 class NBA_GPP_Simulator:
@@ -12,8 +13,10 @@ class NBA_GPP_Simulator:
     field_size = None
     num_iterations = None
     site = None
+    contest_structure = None
+    entry_fee = None
 
-    def __init__(self, site, field_size, num_iterations):
+    def __init__(self, site, field_size, num_iterations, contest_id):
         self.site = site
         self.load_config()
         projection_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['projection_path']))
@@ -33,10 +36,15 @@ class NBA_GPP_Simulator:
             self.roster_construction = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
             self.salary = 60000
 
-        self.field_size = int(field_size)
+        if contest_id != -1:
+            contest_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['contest_structure_path']))
+            self.load_contest_data(contest_path)
+        else:
+            self.field_size = int(field_size)
+            
         self.num_iterations = int(num_iterations)
 
-    # In order to make reasonable tournament lineups ,we want to be close enough to the optimal that 
+    # In order to make reasonable tournament lineups, we want to be close enough to the optimal that 
     # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
     def get_optimal(self):
         problem = pulp.LpProblem('NBA', pulp.LpMaximize)
@@ -86,6 +94,13 @@ class NBA_GPP_Simulator:
 
         self.optimal_score = eval(score)
 
+    def load_contest_data(self, path):
+        with open(path) as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if self.field_size is None:
+                    self.field_size = row['Field Size']
+                
 
     # Load config from file
     def load_config(self):

@@ -36,7 +36,8 @@ Where:
 `<process>` is: 
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
-    - Note you will need to provide extra arguments for this - `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to simulate the tournament.
+    - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to simulate the tournament.
+	- Usage #2 allows you to specify an actual DraftKings contest, which will dictate `<field_size>`. You will specify the number of iterations, but specifying the contest allows the simulation to take ROI into account, since the payout structure and entry fee is known. The usage for this is: `python .\main.py <site> sim cid <num_iterations>`. To execute this usage, you will need a `contest_structure.csv` file in the structure of the video shown below:
 
 `<num_lineups>` is the number of lineups you want to generate when using the `opto` process.
 
@@ -56,4 +57,8 @@ The image below shows what the shell/terminal should look like when executing th
 ## Output
 Data is stored in the `output/` directory. Note that subsequent runs of the tool will overwrite previous output files, so either move them or rename them if you wish to preseve them. From there, you may upload these `.csv` files into Excel, and "pretty them up" - this can be seen below 
 
-![Example output](readme_images/output.png)
+### `opto` Process
+![Example output](readme_images/opto_output.png)
+
+### `sim` Process
+![Example output](readme_images/sim_output.png)
