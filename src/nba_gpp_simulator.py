@@ -1,6 +1,5 @@
 import json, os, csv, math, random, pulp, heapq
 import numpy as np
-from draft_kings import *
 
 
 class NBA_GPP_Simulator:
@@ -13,10 +12,11 @@ class NBA_GPP_Simulator:
     field_size = None
     num_iterations = None
     site = None
-    contest_structure = None
+    payout_structure = {}
+    use_contest_data = False
     entry_fee = None
 
-    def __init__(self, site, field_size, num_iterations, contest_id):
+    def __init__(self, site, field_size, num_iterations, use_contest_data):
         self.site = site
         self.load_config()
         projection_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['projection_path']))
@@ -36,9 +36,11 @@ class NBA_GPP_Simulator:
             self.roster_construction = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
             self.salary = 60000
 
-        if contest_id != -1:
+        self.use_contest_data = use_contest_data
+        if use_contest_data:
             contest_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['contest_structure_path']))
             self.load_contest_data(contest_path)
+            print('Contest payout structure loaded.')
         else:
             self.field_size = int(field_size)
             
@@ -99,8 +101,19 @@ class NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 if self.field_size is None:
-                    self.field_size = row['Field Size']
-                
+                    self.field_size = int(row['Field Size'])
+                if self.entry_fee is None:
+                    self.entry_fee = int(row['Entry Fee'])
+            
+                # multi-position payouts
+                if '-' in row['Place']:
+                    indices = row['Place'].split('-')
+                    for i in range(int(indices[0]), int(indices[1])):
+                        self.payout_structure[i] = int(row['Payout'].split('.')[0].replace(',',''))
+                # single-position payouts
+                else:
+                    self.payout_structure[int(row['Place'])] = int(row['Payout'].split('.')[0].replace(',',''))
+           
 
     # Load config from file
     def load_config(self):
@@ -174,6 +187,7 @@ class NBA_GPP_Simulator:
         return np.random.choice(a=plyr_list, p=prob_list)
 
     def generate_field_lineups(self):
+        print('Generating ' + str(self.field_size) + ' lineups.')
         for i in range(self.field_size):
             reject = True
             while reject:
@@ -189,10 +203,12 @@ class NBA_GPP_Simulator:
                 # Must have a reasonable salary
                 if ((self.salary - (2000 if self.site == 'fd' else 1000)) <= salary <= self.salary):
                     # Must have a reasonable projection
-                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= (self.optimal_score - (0.15*self.optimal_score))):
+                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= (self.optimal_score - (0.2*self.optimal_score))):
                         reject= False
+                        if i % 1000 == 0:
+                            print(i)
 
-            self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0}
+            self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
 
         print(str(self.field_size) + ' field lineups successfully generated')
 
@@ -204,15 +220,34 @@ class NBA_GPP_Simulator:
 
             for index,values in self.field_lineups.items():
                 fpts_sim = sum(temp_fpts_dict[player] for player in values['Lineup'])
-                field_score[index] = {'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
+                field_score[fpts_sim] = {'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
 
-            # Get the top 10 scores for the sim
-            top_10 = heapq.nlargest(10, field_score.values(), key=lambda x: x['Fpts'])
-            for lineup in top_10:
-                if lineup == top_10[0]:
-                    self.field_lineups[lineup['Index']]['Wins'] = self.field_lineups[lineup['Index']]['Wins'] + 1
+            # If we're using contest data, we need to calculate ROI for the lineups - sort them descending and assign payouts
+            if self.use_contest_data:
+                sorted_dict = dict(sorted(field_score.items(), reverse=True))
+                i = 0
+                for k,values in field_score.items():
+                    # If this lineup "placed"
+                    if i in self.payout_structure:
+                        self.field_lineups[i]['ROI'] = self.field_lineups[i]['ROI'] + (self.payout_structure[i] - self.entry_fee)
+                    # Else, this lineup lost money (entry fee)
+                    else:
+                        self.field_lineups[i]['ROI'] = self.field_lineups[i]['ROI'] - self.entry_fee
 
-                self.field_lineups[lineup['Index']]['Top10'] = self.field_lineups[lineup['Index']]['Top10'] + 1
+                    # Winning
+                    if i == 0:
+                        self.field_lineups[i]['Wins'] = self.field_lineups[i]['Wins'] + 1
+                    if i < 10:
+                        self.field_lineups[i]['Top10'] = self.field_lineups[i]['Top10'] + 1
+                    # Top 10
+            else:
+                # Get the top 10 scores for the sim
+                top_10 = heapq.nlargest(10, field_score.values(), key=lambda x: x['Fpts'])
+                for lineup in top_10:
+                    if lineup == top_10[0]:
+                        self.field_lineups[lineup['Index']]['Wins'] = self.field_lineups[lineup['Index']]['Wins'] + 1
+
+                    self.field_lineups[lineup['Index']]['Top10'] = self.field_lineups[lineup['Index']]['Top10'] + 1
 
         print(str(self.num_iterations) + ' tournament simulations finished. Outputting.')
 
@@ -224,16 +259,29 @@ class NBA_GPP_Simulator:
             own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x['Lineup']])
             win_p = round(x['Wins']/self.num_iterations * 100, 2)
             top10_p = round(x['Top10']/self.num_iterations / 10 * 100, 2)
+            roi_p = round(x['ROI']/self.entry_fee * 100, 2)
             if self.site == 'dk':
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
-                    x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],
-                    fpts_p,salary,win_p,top10_p,own_p
-                )
+                if self.use_contest_data:
+                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}%,{}'.format(
+                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],
+                        fpts_p,salary,win_p,top10_p,roi_p,own_p
+                    )
+                else:
+                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
+                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],
+                        fpts_p,salary,win_p,top10_p,own_p
+                    )
             elif self.site == 'fd':
-                lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
-                    x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
-                    fpts_p,salary,win_p,top10_p,own_p
-                )
+                if self.use_contest_data:
+                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}%,{}'.format(
+                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
+                        fpts_p,salary,win_p,top10_p,roi_p,own_p
+                    )
+                else:
+                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
+                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
+                        fpts_p,salary,win_p,top10_p,own_p
+                    )
             unique[index] = lineup_str
 
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_gpp_sim_lineups_{}_{}.csv'.format(self.site, self.field_size, self.num_iterations))

@@ -9,8 +9,7 @@ from windows_inhibitor import *
 
 def main(arguments):
     if len(arguments) < 3 or len(arguments) > 6:
-        print('For opto: `python .\main.py <site> opto <num_lineups> <num_uniques> <use_rand>`')
-        print('For sim: `python .\main.py <site> sim <field_size> <num_iterations>`')
+        print('Incorrect usage. Please see `README.md` for proper usage.')
         exit()
 
     site = arguments[1]
@@ -27,16 +26,15 @@ def main(arguments):
         site = arguments[1]
         field_size = -1
         num_iterations = -1
-        contest_id = -1
-        # 100691372
+        use_contest_data = False
         if arguments[3] == 'cid':
-            contest_id = arguments[4]
-            num_iterations = arguments[5]
+            use_contest_data = True
         else:
             field_size = arguments[3]
-            num_iterations = arguments[4]
+            
+        num_iterations = arguments[4]
 
-        sim = NBA_GPP_Simulator(site, field_size, num_iterations, contest_id)
+        sim = NBA_GPP_Simulator(site, field_size, num_iterations, use_contest_data)
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
         sim.output()
