@@ -7,7 +7,7 @@ Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, alon
 - In addition to the base python installation, you will need the following packages:
     - [PuLP](https://pypi.org/project/PuLP/) - `pip install pulp`. This is the linear programming solver - the "optimizer" if you will.
     - [timedelta](https://pypi.org/project/timedelta/) - `pip install timedelta`. This package makes it easy to interpret dates for late swaptimizing lineups.
-    - [numpy](https://pypi.org/project/numpy/) - `pip install numpy`. This package makes data manipulation and handlnig matrices easier.
+    - [numpy](https://pypi.org/project/numpy/) - `pip install numpy`. This package makes data manipulation and handling matrices easier.
 
 To install these tools, you may either clone this repository or download the repository as a ZIP file (see image below) and extract it to the directory of your choosing.
     
