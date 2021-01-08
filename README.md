@@ -36,7 +36,7 @@ Where:
 `<process>` is: 
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
-    - Note you will need to provide extra arguments for this - `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to 
+    - Note you will need to provide extra arguments for this - `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to simulate the tournament.
 
 `<num_lineups>` is the number of lineups you want to generate when using the `opto` process.
 
