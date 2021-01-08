@@ -1,5 +1,5 @@
 # NBA Optimizer and GPP Utilities
-Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, along with other tools you might find useful in helping you win your Cash games, Head-to-heads and Tournaments. You'll find installation and usage instructions below
+Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, along with other tools you might find useful in helping you win your Cash games, Head-to-heads and Tournaments. You'll find installation and usage instructions below. Data input is in the format of [Awesemo](https://www.awesemo.com/join/#/) CSV export. Awesemo has great player projection and ownership predictions that can't be matched. Sign up and join in premium slack where DFS pros, including Alex "Awesemo" Baker himself, can answer your quetsions and help you win.
 
 ## Installation
 ### System requirements
@@ -7,13 +7,13 @@ Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, alon
 - In addition to the base python installation, you will need the following packages:
     - [PuLP](https://pypi.org/project/PuLP/) - `pip install pulp`. This is the linear programming solver - the "optimizer" if you will.
     - [timedelta](https://pypi.org/project/timedelta/) - `pip install timedelta`. This package makes it easy to interpret dates for late swaptimizing lineups.
-    - [numpy](https://pypi.org/project/numpy/) - `pip install numpy`. This package makes data manipulation and handlnig matrices easier.
+    - [numpy](https://pypi.org/project/numpy/) - `pip install numpy`. This package makes data manipulation and handling matrices easier.
 
 To install these tools, you may either clone this repository or download the repository as a ZIP file (see image below) and extract it to the directory of your choosing.
     
 ![Download image](readme_images/download.png)
 
-After you have cloned or downloaded the code base, you must import player contest data from DraftKings or FanDuel. Reference the screenshots below for your relative site. You will need to rename these files to `player_ids.csv`, and place into their relative directory (`dk_data/` or `fd_data/`)
+After you have cloned or downloaded the code base, you must import player contest data from DraftKings or FanDuel. Reference the screenshots below for your relative site. You will need to rename these files to `player_ids.csv`, and place into their relative directory (`dk_data/` or `fd_data/`). These directories should be folders located in the same directory as `src/` and `output/`, and will hold relevant data for each site.
 
 
 After you have the player data, you must import data from Awesemo, namely the projections, ownership, boom/bust tool. Download them as CSV, and rename them to match the image below. These will go in either `dk_data/` or `fd_data/` depending on which data you downloaded.
@@ -36,7 +36,7 @@ Where:
 `<process>` is: 
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
-    - Note you will need to provide extra arguments for this - `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to 
+    - Note you will need to provide extra arguments for this - `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to simulate the tournament.
 
 `<num_lineups>` is the number of lineups you want to generate when using the `opto` process.
 
