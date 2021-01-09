@@ -18,6 +18,7 @@ class NBA_Ilya_Optimizer:
         self.problem = LpProblem('NBA', LpMaximize)
         self.load_projections('ilya_projections.csv')
         self.load_boom_bust('boom_bust.csv')
+        self.load_ownership('projections.csv')
         self.num_lineups = num_lineups
         self.use_rand = True if use_rand == 'rand' else False
 
@@ -129,7 +130,9 @@ class NBA_Ilya_Optimizer:
             f.write('guard_point,guard_shooting,forward_small,forward_power,center,flex,flex,Fpts Projection,Salary,\n')
             for fpts, x in self.lineups.items():
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
-                lineup_str = '{},{},{},{},{},{},{},{},{}'.format(
+                fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
+                own_p = sum(self.player_dict[player]['Ownership'] for player in x)
+                lineup_str = '{},{},{},{},{},{},{},{},{},{}'.format(
                     x[0].replace('#', '-'),
                     x[1].replace('#', '-'),
                     x[2].replace('#', '-'),
@@ -137,7 +140,7 @@ class NBA_Ilya_Optimizer:
                     x[4].replace('#', '-'),
                     x[5].replace('#', '-'),
                     x[6].replace('#', '-'),
-                    round(fpts, 2),round(salary, 2)
+                    round(fpts_p, 2),round(salary, 2),round(own_p, 2)
                 )
                 f.write('%s\n' % lineup_str)
         with open('optimal_lineups_upload_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:

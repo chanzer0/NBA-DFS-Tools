@@ -23,7 +23,7 @@ class NBA_Late_Swaptimizer:
         self.load_boom_bust(boom_bust_path)
 
         lineup_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['late_swap_path']))
-        self.load_lineups(lineup_path)
+        self.load_live_lineups(lineup_path)
 
     # Load config from file
     def load_config(self):
@@ -71,34 +71,53 @@ class NBA_Late_Swaptimizer:
                     self.player_dict[player_name]['Position'] = row['Position']
 
     # Load the late-swap lineups we want to alter
-    def load_lineups(self, path):
+    def load_live_lineups(self, path):
+        # Read live lineups into a dictionary
+        lineups = {}
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                self.live_lineups.append([player for player in row])
+                # Lineups are in here
+                if row['Entry ID'] != '':
+                    lineups[row['Entry ID']] = {
+                        'PG': (row['PG'][:-11],0), 
+                        'SG': (row['SG'][:-11],0), 
+                        'SF': (row['SF'][:-11],0), 
+                        'PF': (row['PF'][:-11],0), 
+                        'C': (row['C'][:-11],0), 
+                        'G': (row['G'][:-11],0), 
+                        'F': (row['F'][:-11],0), 
+                        'UTIL': (row['UTIL'][:-11],0)
+                    }
 
-        print(self.live_lineups)
+                # Player start times are in here
+                elif None in row:
+                    player_name = row[None][1]
+                    game_info = row[None][5]
+                    if player_name in self.player_dict:
+                        start_time = game_info.split(' ', 1)[-1][:-5]
+                        date_obj = datetime.datetime.strptime(start_time, '%m/%d/%Y %H:%M')
+                        # times are parsed as AM, but are actually PM - i.e. 0700 (AM) needs to be 1900 (700 PM), thus add 12 hours
+                        self.player_dict[player_name]['Start Time'] = date_obj + datetime.timedelta(hours=12) 
+        return lineups
 
 
     def swaptimize(self):
-        swaptimized_lineups = []
-        for lineup in self.live_lineups:
-            lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
-            for player in lp_variables:
-                # If player is in our lineup, and it has already locked, we cannot change him
-                if player in lineup:
+        lineup_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(self.site, self.config['late_swap_path']))
+        live_lineups = self.load_live_lineups(lineup_path)
+        print(live_lineups)
 
-                    player.setInitialValue(1)
-                    player.fixValue()
-            # Need 2 PG
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' == self.player_dict[player]['Position']) == 2
-            # Need 2 SG
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' == self.player_dict[player]['Position']) == 2
-            # Need 2 SF
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' == self.player_dict[player]['Position']) == 2
-            # Need 2 PF
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' == self.player_dict[player]['Position']) == 2
-            # Need 1 center
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' == self.player_dict[player]['Position']) == 1
-            # Can only roster 9 total players
-            self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 9
+        # Need to indicate whether or not a player is "locked" or "swappable" (1 and 0, respectively)
+        # Current time in EST, since thats what DK uses in their files
+        curr_time = datetime.datetime.now(pytz.timezone('EST'))
+        for entry_id,players in live_lineups.items():
+            print(players['PG'])
+            for pos in players:
+                player_name = players[pos][0]
+                if self.player_dict[player_name]['Start Time'] is not None:
+                    player_start_time = pytz.timezone('EST').localize(self.player_dict[player_name]['Start Time'])
+                    # If their game has already started, we need to "lock" them
+                    if curr_time > player_start_time:
+                        players[pos] = (players[pos][0], 1)
+
+            

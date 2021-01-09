@@ -5,6 +5,7 @@ from nfl_optimizer import *
 from nba_optimizer import *
 from nba_gpp_simulator import *
 from nba_evolutionary_lineup_selector import *
+from nba_showdown_optimizer import *
 from windows_inhibitor import *
 
 def main(arguments):
@@ -19,6 +20,14 @@ def main(arguments):
         num_uniques = arguments[4]
         use_randomness = arguments[5]
         opto = NBA_Optimizer(site, num_lineups, use_randomness, num_uniques)
+        opto.optimize()
+        opto.output()
+
+    elif process == 'sd':
+        num_lineups = arguments[3]
+        num_uniques = arguments[4]
+        use_randomness = arguments[5]
+        opto = NBA_Showdown_Optimizer(site, num_lineups, use_randomness, num_uniques)
         opto.optimize()
         opto.output()
 

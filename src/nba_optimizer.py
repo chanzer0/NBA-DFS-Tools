@@ -94,56 +94,6 @@ class NBA_Optimizer:
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
 
-    def load_live_lineups(self, path):
-        # Read live lineups into a dictionary
-        lineups = {}
-        with open(path) as file:
-            reader = csv.DictReader(file)
-            for row in reader:
-                # Lineups are in here
-                if row['Entry ID'] is not '':
-                    lineups[row['Entry ID']] = {
-                        'PG': (row['PG'][:-11],0), 
-                        'SG': (row['SG'][:-11],0), 
-                        'SF': (row['SF'][:-11],0), 
-                        'PF': (row['PF'][:-11],0), 
-                        'C': (row['C'][:-11],0), 
-                        'G': (row['G'][:-11],0), 
-                        'F': (row['F'][:-11],0), 
-                        'UTIL': (row['UTIL'][:-11],0)
-                    }
-
-                # Player start times are in here
-                elif None in row:
-                    player_name = row[None][1]
-                    game_info = row[None][5]
-                    if player_name in self.player_dict:
-                        start_time = game_info.split(' ', 1)[-1][:-5]
-                        date_obj = datetime.datetime.strptime(start_time, '%m/%d/%Y %H:%M')
-                        # times are parsed as AM, but are actually PM - i.e. 0700 (AM) needs to be 1900 (700 PM), thus add 12 hours
-                        self.player_dict[player_name]['Start Time'] = date_obj + datetime.timedelta(hours=12) 
-        return lineups
-
-
-    def swaptimize(self):
-        lineup_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(self.site, self.config['late_swap_path']))
-        live_lineups = self.load_live_lineups(lineup_path)
-        print(live_lineups)
-
-        # Need to indicate whether or not a player is "locked" or "swappable" (1 and 0, respectively)
-        # Current time in EST, since thats what DK uses in their files
-        curr_time = datetime.datetime.now(pytz.timezone('EST'))
-        for entry_id,players in live_lineups.items():
-            print(players['PG'])
-            for pos in players:
-                player_name = players[pos][0]
-                if self.player_dict[player_name]['Start Time'] is not None:
-                    player_start_time = pytz.timezone('EST').localize(self.player_dict[player_name]['Start Time'])
-                    # If their game has already started, we need to "lock" them
-                    if curr_time > player_start_time:
-                        players[pos] = (players[pos][0], 1)
-
-
     def optimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
@@ -198,7 +148,6 @@ class NBA_Optimizer:
             # Can only roster 9 total players
             self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 9
         
-
         # Crunch!
         for i in range(self.num_lineups):
             try:
@@ -267,7 +216,6 @@ class NBA_Optimizer:
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
-                
                 f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Minutes,Boom,Bust\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
