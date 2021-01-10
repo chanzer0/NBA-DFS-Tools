@@ -246,26 +246,26 @@ class NBA_GPP_Simulator:
                     idx = values['Index']
                     # If this lineup "placed"
                     if i in self.payout_structure:
-                        self.field_lineups[idx]['ROI'] = self.field_lineups[idx]['ROI'] + (self.payout_structure[i] - self.entry_fee)
+                        self.field_lineups[idx]['ROI'] += (self.payout_structure[i] - self.entry_fee)
                     # Else, this lineup lost money (entry fee)
                     else:
                         self.field_lineups[idx]['ROI'] = self.field_lineups[idx]['ROI'] - self.entry_fee
 
                     # Winning
                     if i == 0:
-                        self.field_lineups[idx]['Wins'] = self.field_lineups[idx]['Wins'] + 1
+                        self.field_lineups[idx]['Wins'] += 1
                     # Top 10
                     if i < 10:
-                        self.field_lineups[idx]['Top10'] = self.field_lineups[idx]['Top10'] + 1
-                    i = i + 1
+                        self.field_lineups[idx]['Top10'] +=  1
+                    i += 1
             else:
                 # Get the top 10 scores for the sim
                 top_10 = heapq.nlargest(10, field_score.values(), key=lambda x: x['Fpts'])
                 for lineup in top_10:
                     if lineup == top_10[0]:
-                        self.field_lineups[lineup['Index']]['Wins'] = self.field_lineups[lineup['Index']]['Wins'] + 1
+                        self.field_lineups[lineup['Index']]['Wins'] += 1
 
-                    self.field_lineups[lineup['Index']]['Top10'] = self.field_lineups[lineup['Index']]['Top10'] + 1
+                    self.field_lineups[lineup['Index']]['Top10'] += 1
 
         print(str(self.num_iterations) + ' tournament simulations finished. Outputting.')
 
@@ -292,27 +292,43 @@ class NBA_GPP_Simulator:
                         fpts_p,salary,win_p,top10_p,roi_p,own_p
                     )
                 else:
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{}%,{}%,{}'.format(
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][0],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][1],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][2],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][3],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][4],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][5],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][6],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][7],
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][8],
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{}%,{}%,{}'.format(
+                        x['Lineup'][0], self.player_dict[x['Lineup'][0]]['ID'],
+                        x['Lineup'][1], self.player_dict[x['Lineup'][1]]['ID'],
+                        x['Lineup'][2], self.player_dict[x['Lineup'][2]]['ID'],
+                        x['Lineup'][3], self.player_dict[x['Lineup'][3]]['ID'],
+                        x['Lineup'][4], self.player_dict[x['Lineup'][4]]['ID'],
+                        x['Lineup'][5], self.player_dict[x['Lineup'][5]]['ID'],
+                        x['Lineup'][6], self.player_dict[x['Lineup'][6]]['ID'],
+                        x['Lineup'][7], self.player_dict[x['Lineup'][7]]['ID'],
                         fpts_p,salary,win_p,top10_p,own_p
                     )
             elif self.site == 'fd':
                 if self.use_contest_data:
-                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}%,{}'.format(
-                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
+                    roi_p = round(x['ROI']/self.entry_fee/self.num_iterations * 100, 2)
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{}%,{}%,{}%,{}'.format(
+                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][0],
+                        self.player_dict[x['Lineup'][1]]['ID'], x['Lineup'][1],
+                        self.player_dict[x['Lineup'][2]]['ID'], x['Lineup'][2],
+                        self.player_dict[x['Lineup'][3]]['ID'], x['Lineup'][3],
+                        self.player_dict[x['Lineup'][4]]['ID'], x['Lineup'][4],
+                        self.player_dict[x['Lineup'][5]]['ID'], x['Lineup'][5],
+                        self.player_dict[x['Lineup'][6]]['ID'], x['Lineup'][6],
+                        self.player_dict[x['Lineup'][7]]['ID'], x['Lineup'][7],
+                        self.player_dict[x['Lineup'][8]]['ID'], x['Lineup'][8],
                         fpts_p,salary,win_p,top10_p,roi_p,own_p
                     )
                 else:
-                    lineup_str = '{},{},{},{},{},{},{},{},{},{},{},{}%,{}%,{}'.format(
-                        x['Lineup'][0],x['Lineup'][1],x['Lineup'][2],x['Lineup'][3],x['Lineup'][4],x['Lineup'][5],x['Lineup'][6],x['Lineup'][7],x['Lineup'][8],
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{}%,{}%,{}'.format(
+                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][0],
+                        self.player_dict[x['Lineup'][1]]['ID'], x['Lineup'][1],
+                        self.player_dict[x['Lineup'][2]]['ID'], x['Lineup'][2],
+                        self.player_dict[x['Lineup'][3]]['ID'], x['Lineup'][3],
+                        self.player_dict[x['Lineup'][4]]['ID'], x['Lineup'][4],
+                        self.player_dict[x['Lineup'][5]]['ID'], x['Lineup'][5],
+                        self.player_dict[x['Lineup'][6]]['ID'], x['Lineup'][6],
+                        self.player_dict[x['Lineup'][7]]['ID'], x['Lineup'][7],
+                        self.player_dict[x['Lineup'][8]]['ID'], x['Lineup'][8],
                         fpts_p,salary,win_p,top10_p,own_p
                     )
             unique[index] = lineup_str
