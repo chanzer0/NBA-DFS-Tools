@@ -217,15 +217,15 @@ class NBA_GPP_Simulator:
                     lineup.append(x)
                     salary += self.player_dict[x]['Salary']
                 # Must have a reasonable salary
-                if ((self.salary - (2000 if self.site == 'fd' else 1000)) <= salary <= self.salary):
-                    # Must have a reasonable projection
-                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= (self.optimal_score - (0.2*self.optimal_score))):
-                        reject= False
+                reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
+                if (salary >= reasonable_salary):
+                    # Must have a reasonable projection (within 20% of optimal)
+                    reasonable_projection = self.optimal_score - (0.2*self.optimal_score)
+                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
+                        reject = False
                         if i % 1000 == 0:
                             print(i)
-
             self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
-
         print(str(self.field_size) + ' field lineups successfully generated')
 
     def run_tournament_simulation(self):
@@ -277,9 +277,9 @@ class NBA_GPP_Simulator:
             own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x['Lineup']])
             win_p = round(x['Wins']/self.num_iterations * 100, 2)
             top10_p = round(x['Top10']/self.num_iterations * 100, 2)
-            roi_p = round(x['ROI']/self.entry_fee/self.num_iterations * 100, 2)
             if self.site == 'dk':
                 if self.use_contest_data:
+                    roi_p = round(x['ROI']/self.entry_fee/self.num_iterations * 100, 2)
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{}%,{}%,{}%,{}'.format(
                         x['Lineup'][0], self.player_dict[x['Lineup'][0]]['ID'],
                         x['Lineup'][1], self.player_dict[x['Lineup'][1]]['ID'],
