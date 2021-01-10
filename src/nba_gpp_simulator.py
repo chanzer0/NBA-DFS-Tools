@@ -218,7 +218,7 @@ class NBA_GPP_Simulator:
                     salary += self.player_dict[x]['Salary']
                 # Must have a reasonable salary
                 reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
-                if (salary >= reasonable_salary):
+                if (salary >= reasonable_salary and salary <= self.salary):
                     # Must have a reasonable projection (within 20% of optimal)
                     reasonable_projection = self.optimal_score - (0.2*self.optimal_score)
                     if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
@@ -241,8 +241,7 @@ class NBA_GPP_Simulator:
             # If we're using contest data, we need to calculate ROI for the lineups - sort them descending and assign payouts
             if self.use_contest_data:
                 sorted_dict = dict(sorted(field_score.items(), reverse=True))
-                i = 0
-                for k,values in field_score.items():
+                for i, (k,values) in enumerate(sorted_dict.items()):
                     idx = values['Index']
                     # If this lineup "placed"
                     if i in self.payout_structure:

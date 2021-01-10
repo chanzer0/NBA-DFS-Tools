@@ -196,22 +196,23 @@ class NBA_Optimizer:
 
         self.lineups = unique
         self.format_lineups()
-        num_uniq_lineups = OrderedDict(sorted(self.lineups.items(), reverse=False, key=lambda t: t[0]))
-        self.lineups = {}
-        for fpts,lineup in num_uniq_lineups.copy().items():
-            temp_lineups = list(num_uniq_lineups.values())
-            temp_lineups.remove(lineup)
-            use_lineup = True
-            for x in temp_lineups:
-                common_players = set(x) & set(lineup)
-                roster_size = 9 if self.site == 'fd' else 8
-                if (roster_size - len(common_players)) < self.num_uniques:
-                    use_lineup = False
-                    del num_uniq_lineups[fpts]
-                    break
+        if self.num_uniques != 1:
+            num_uniq_lineups = OrderedDict(sorted(self.lineups.items(), reverse=False, key=lambda t: t[0]))
+            self.lineups = {}
+            for fpts,lineup in num_uniq_lineups.copy().items():
+                temp_lineups = list(num_uniq_lineups.values())
+                temp_lineups.remove(lineup)
+                use_lineup = True
+                for x in temp_lineups:
+                    common_players = set(x) & set(lineup)
+                    roster_size = 9 if self.site == 'fd' else 8
+                    if (roster_size - len(common_players)) < self.num_uniques:
+                        use_lineup = False
+                        del num_uniq_lineups[fpts]
+                        break
 
-            if use_lineup:
-                self.lineups[fpts] = lineup
+                if use_lineup:
+                    self.lineups[fpts] = lineup
                   
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
