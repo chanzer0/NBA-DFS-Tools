@@ -138,10 +138,10 @@ class NBA_GPP_Simulator:
                     indices = row['Place'].split('-')
                     for i in range(int(indices[0]), int(indices[1])):
                         # Where I'm from, we 0 index things. Thus, -1 since Payout starts at 1st place
-                        self.payout_structure[i - 1] = int(row['Payout'].split('.')[0].replace(',',''))
+                        self.payout_structure[i - 1] = float(row['Payout'].split('.')[0].replace(',',''))
                 # single-position payouts
                 else:
-                    self.payout_structure[int(row['Place']) - 1] = int(row['Payout'].split('.')[0].replace(',',''))
+                    self.payout_structure[int(row['Place']) - 1] = float(row['Payout'].split('.')[0].replace(',',''))
 
     # Load config from file
     def load_config(self):
@@ -268,7 +268,6 @@ class NBA_GPP_Simulator:
                     # Top 10
                     if i < 10:
                         self.field_lineups[idx]['Top10'] +=  1
-                    i += 1
             else:
                 # Get the top 10 scores for the sim
                 top_10 = heapq.nlargest(10, field_score.values(), key=lambda x: x['Fpts'])

@@ -74,7 +74,7 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Start Time': None}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Start Time': None}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
                 self.player_dict[player_name]['Minutes'] = int(row['Minutes'])
@@ -218,7 +218,7 @@ class NBA_Optimizer:
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
-                f.write('PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Fpts Sim,Own. Product,Own. Sum,Minutes,Boom,Bust\n')
+                f.write('PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Own. Product,Optimal%,Minutes,Boom%,Bust%\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
@@ -227,7 +227,8 @@ class NBA_Optimizer:
                     mins = sum(self.player_dict[player]['Minutes'] for player in x)
                     boom = sum(self.player_dict[player]['Boom'] for player in x)
                     bust = sum(self.player_dict[player]['Bust'] for player in x)
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{}'.format(
+                    optimal = sum(self.player_dict[player]['Optimal'] for player in x)
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{}'.format(
                         x[0].replace('#', '-'),self.player_dict[x[0]]['ID'],
                         x[1].replace('#', '-'),self.player_dict[x[1]]['ID'],
                         x[2].replace('#', '-'),self.player_dict[x[2]]['ID'],
@@ -236,11 +237,11 @@ class NBA_Optimizer:
                         x[5].replace('#', '-'),self.player_dict[x[5]]['ID'],
                         x[6].replace('#', '-'),self.player_dict[x[6]]['ID'],
                         x[7].replace('#', '-'),self.player_dict[x[7]]['ID'],
-                        salary,round(fpts_p, 2),round(fpts, 2),own_p,round(own_s, 2),mins,boom,bust
+                        salary,round(fpts, 2),own_p,round(optimal, 2),mins,round(boom,2),round(bust,2)
                     )
                     f.write('%s\n' % lineup_str)
             else:
-                f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Fpts Sim,Salary,Own. Product,Own. Sum,Minutes,Boom,Bust\n')
+                f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Product,Optimal%,Minutes,Boom%,Bust%\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
@@ -249,7 +250,8 @@ class NBA_Optimizer:
                     mins = sum(self.player_dict[player]['Minutes'] for player in x)
                     boom = sum(self.player_dict[player]['Boom'] for player in x)
                     bust = sum(self.player_dict[player]['Bust'] for player in x)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{},{}'.format(
+                    optimal = sum(self.player_dict[player]['Optimal'] for player in x)
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{}'.format(
                         self.player_dict[x[0]]['ID'],x[0].replace('#', '-'),
                         self.player_dict[x[1]]['ID'],x[1].replace('#', '-'),
                         self.player_dict[x[2]]['ID'],x[2].replace('#', '-'),
@@ -259,7 +261,7 @@ class NBA_Optimizer:
                         self.player_dict[x[6]]['ID'],x[6].replace('#', '-'),
                         self.player_dict[x[7]]['ID'],x[7].replace('#', '-'),
                         self.player_dict[x[8]]['ID'],x[8].replace('#', '-'),
-                        round(fpts_p, 2),round(fpts, 2),salary,own_p,round(own_s, 2),mins,boom,bust
+                        salary,round(fpts_p, 2),own_p,round(optimal, 2),mins,round(boom,2),round(bust,2)
                     )
                     f.write('%s\n' % lineup_str)
         print('Output done.')
