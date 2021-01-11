@@ -1,5 +1,6 @@
-import json, os, csv, math, random, pulp, heapq
+import json, os, csv, math, random, heapq
 import numpy as np
+from pulp import *
 
 
 class NBA_GPP_Simulator:
@@ -31,7 +32,6 @@ class NBA_GPP_Simulator:
         player_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['player_path']))
         self.load_player_ids(player_path)
 
-        self.get_optimal()
         if site == 'dk':
             self.roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G', 'UTIL']
             self.salary = 50000
@@ -48,56 +48,68 @@ class NBA_GPP_Simulator:
             self.field_size = int(field_size)
             
         self.num_iterations = int(num_iterations)
+        self.get_optimal()
 
     # In order to make reasonable tournament lineups, we want to be close enough to the optimal that 
     # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
     def get_optimal(self):
-        problem = pulp.LpProblem('NBA', pulp.LpMaximize)
-        lp_variables = {player: pulp.LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
-        problem += pulp.lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict)
-        problem += pulp.lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.salary
+        problem = LpProblem('NBA', LpMaximize)
+        lp_variables = {player: LpVariable(player, cat='Binary') for player, _ in self.player_dict.items()}
+
+        # set the objective - maximize fpts
+        problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict), 'Objective'
+
+        # Set the salary constraints
+        problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= self.salary
+
         if self.site == 'dk':
             # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 1
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) <= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) <= 3
             # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) >= 1
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) <= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) >= 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) <= 3
             # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) >= 1
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) <= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) >= 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) <= 3
             # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) >= 1
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) <= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) >= 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) <= 3
             # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 2
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 2
             # Need at least 3 guards (PG,SG,G)
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']) >= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']) >= 3
             # Need at least 3 forwards (SF,PF,F)
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
             # Can only roster 8 total players
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict) == 8
+            problem += lpSum(lp_variables[player] for player in self.player_dict) == 8
         else:
             # Need 2 PG
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PG' == self.player_dict[player]['Position']) == 2
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' == self.player_dict[player]['Position']) == 2
             # Need 2 SG
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SG' == self.player_dict[player]['Position']) == 2
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SG' == self.player_dict[player]['Position']) == 2
             # Need 2 SF
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' == self.player_dict[player]['Position']) == 2
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' == self.player_dict[player]['Position']) == 2
             # Need 2 PF
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'PF' == self.player_dict[player]['Position']) == 2
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'PF' == self.player_dict[player]['Position']) == 2
             # Need 1 center
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict if 'C' == self.player_dict[player]['Position']) == 1
+            problem += lpSum(lp_variables[player] for player in self.player_dict if 'C' == self.player_dict[player]['Position']) == 1
             # Can only roster 9 total players
-            problem += pulp.lpSum(lp_variables[player] for player in self.player_dict) == 9
+            problem += lpSum(lp_variables[player] for player in self.player_dict) == 9
         
-        problem.solve(pulp.PULP_CBC_CMD(msg=0))
+        # Crunch!
+        try:
+            problem.solve(PULP_CBC_CMD(msg=0)) 
+        except PulpSolverError:
+            print('Infeasibility reached - only generated {} lineups out of {}. Continuing with export.'.format(len(self.num_lineups), self.num_lineups))
+
         score = str(problem.objective)
         for v in problem.variables():
             score = score.replace(v.name, str(v.varValue))
-
+    
         self.optimal_score = eval(score)
+        
 
     # Load player IDs for exporting
     def load_player_ids(self, path):
@@ -119,7 +131,7 @@ class NBA_GPP_Simulator:
                 if self.field_size is None:
                     self.field_size = int(row['Field Size'])
                 if self.entry_fee is None:
-                    self.entry_fee = int(row['Entry Fee'])
+                    self.entry_fee = float(row['Entry Fee'])
             
                 # multi-position payouts
                 if '-' in row['Place']:

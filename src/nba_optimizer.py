@@ -65,6 +65,7 @@ class NBA_Optimizer:
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
                     self.player_dict[player_name]['Boom'] = float(row['Boom%'])
                     self.player_dict[player_name]['Bust'] = float(row['Bust%'])
+                    self.player_dict[player_name]['Optimal'] = float(row['Optimal%'])
 
     # Load projections from file
     def load_projections(self, path):
@@ -217,7 +218,7 @@ class NBA_Optimizer:
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
-                f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Fpts Sim,Salary,Own. Product,Own. Sum,Minutes,Boom,Bust\n')
+                f.write('PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Fpts Sim,Own. Product,Own. Sum,Minutes,Boom,Bust\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
@@ -235,7 +236,7 @@ class NBA_Optimizer:
                         x[5].replace('#', '-'),self.player_dict[x[5]]['ID'],
                         x[6].replace('#', '-'),self.player_dict[x[6]]['ID'],
                         x[7].replace('#', '-'),self.player_dict[x[7]]['ID'],
-                        round(fpts_p, 2),round(fpts, 2),salary,own_p,round(own_s, 2),mins,boom,bust
+                        salary,round(fpts_p, 2),round(fpts, 2),own_p,round(own_s, 2),mins,boom,bust
                     )
                     f.write('%s\n' % lineup_str)
             else:
