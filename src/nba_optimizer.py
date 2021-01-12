@@ -64,7 +64,7 @@ class NBA_Optimizer:
                 player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     # if this player has a very low chance of reaching a GPP target score, do not play them
-                    if float(row['Boom%']) <= 1.0:
+                    if float(row['Boom%']) <= 2.0:
                         del self.player_dict[player_name]
                         continue
 
@@ -140,6 +140,9 @@ class NBA_Optimizer:
             self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']) >= 3
             # Need at least 3 forwards (SF,PF,F)
             self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
+            # Max 4 of PG and C single-eligbility players to prevent rare edge case where you can end up with 3 PG and 2 C, even though this build is infeasible
+            self.problem += lpSum(lp_variables[player] for player in self.player_dict if ['PG'] == self.player_dict[player]['Position'] or ['C'] == self.player_dict[player]['Position']) <= 4
+            
             # Can only roster 8 total players
             self.problem += lpSum(lp_variables[player] for player in self.player_dict) == 8
         else:
@@ -275,21 +278,42 @@ class NBA_Optimizer:
 
     def format_lineups(self):
         if self.site == 'dk':
-            dk_roster = [['PG'], ['SG'], ['SF'], ['PF'], ['C'], ['SF', 'PF'], ['PG', 'SG'], ['PG','SG','SF','PF','C']]
+            dk_roster = [['PG'], ['SG'], ['SF'], ['PF'], ['C'], ['PG', 'SG'], ['SF', 'PF'], ['PG','SG','SF','PF','C']]
             temp = self.lineups.items()
             self.lineups = {}
-            for i, (fpts,lineup) in enumerate(temp):
+            for fpts,lineup in temp:
                 finalized = [None] * 8
+                z = 0
+                cond = False
                 while None in finalized:
-                    for i, roster_spot in enumerate(finalized):
-                        if roster_spot is None:
+                    if cond:
+                        break
+                    indices = [0, 1, 2, 3, 4, 5, 6, 7]
+                    shuffle(indices)
+                    for i in indices:
+                        if finalized[i] is None:
                             eligible_players = []
                             for player in lineup:
                                 if any(pos in dk_roster[i] for pos in self.player_dict[player]['Position']):
                                     eligible_players.append(player)
-                            finalized[i] = choice(eligible_players)
+                            selected = choice(eligible_players)
+                            # if there is an eligible player for this position not already in the finalized roster
+                            if any(player not in finalized for player in eligible_players):
+                                while selected in finalized:
+                                    selected = choice(eligible_players)
+                                finalized[i] = selected
+                            # this lineup combination is no longer feasible - retry
+                            else:
+                                z += 1
+                                if z == 1000:
+                                    cond = True
+                                    break
 
-                self.lineups[fpts] = finalized
+                                shuffle(indices)
+                                finalized = [None] * 8
+                                break
+                if not cond:
+                    self.lineups[fpts] = finalized
         else:
             temp = self.lineups
             self.lineups = {}
