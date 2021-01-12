@@ -113,7 +113,7 @@ class NBA_Optimizer:
 
         # Set the salary constraints
         max_salary = 50000 if self.site == 'dk' else 60000
-        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= max_salary
+        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= (max_salary - 100)
 
         if self.site == 'dk':
             # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
@@ -276,7 +276,15 @@ class NBA_Optimizer:
             finalized = [None] * 8
             for fpts,lineup in temp:
                 while None in finalized:
+                    shuffle(lineup)
+                    cont = False
                     for player in lineup:
+                        if player in finalized:
+                            continue
+                        if cont:
+                            finalized = [None] * 8
+                            continue
+
                         if 'PG' == choice(self.player_dict[player]['Position']):
                             if finalized[0] is None:
                                 finalized[0] = player
@@ -285,6 +293,7 @@ class NBA_Optimizer:
                             elif finalized[7] is None:
                                 finalized[7] = player
                             else:
+                                cont = True
                                 finalized[0] = player
                                 continue
                                 
@@ -296,6 +305,7 @@ class NBA_Optimizer:
                             elif finalized[7] is None:
                                 finalized[7] = player
                             else:
+                                cont = True
                                 finalized[1] = player
                                 continue
 
@@ -307,6 +317,7 @@ class NBA_Optimizer:
                             elif finalized[7] is None:
                                 finalized[7] = player
                             else:
+                                cont = True
                                 finalized[2] = player
                                 continue
 
@@ -318,6 +329,7 @@ class NBA_Optimizer:
                             elif finalized[7] is None:
                                 finalized[7] = player
                             else:
+                                cont = True
                                 finalized[3] = player
                                 continue
 
@@ -327,6 +339,7 @@ class NBA_Optimizer:
                             elif finalized[7] is None:
                                 finalized[7] = player
                             else:
+                                cont = True
                                 finalized[4] = player
                                 continue
                    
