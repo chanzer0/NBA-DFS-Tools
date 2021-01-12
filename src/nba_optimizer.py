@@ -2,6 +2,7 @@ import json, csv, os, datetime, pytz, timedelta
 import numpy as np
 from pulp import *
 from itertools import groupby
+from random import shuffle, choice
 
 
 class NBA_Optimizer:
@@ -65,7 +66,8 @@ class NBA_Optimizer:
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
                     self.player_dict[player_name]['Boom'] = float(row['Boom%'])
                     self.player_dict[player_name]['Bust'] = float(row['Bust%'])
-                    self.player_dict[player_name]['Optimal'] = float(row['Optimal%'])
+                    if row['Optimal%'] != '':
+                        self.player_dict[player_name]['Optimal'] = float(row['Optimal%'])
 
     # Load projections from file
     def load_projections(self, path):
@@ -196,7 +198,6 @@ class NBA_Optimizer:
                 unique[fpts] = lineup
 
         self.lineups = unique
-        self.format_lineups()
         if self.num_uniques != 1:
             num_uniq_lineups = OrderedDict(sorted(self.lineups.items(), reverse=False, key=lambda t: t[0]))
             self.lineups = {}
@@ -214,11 +215,12 @@ class NBA_Optimizer:
 
                 if use_lineup:
                     self.lineups[fpts] = lineup
+        self.format_lineups()
                   
         out_path = os.path.join(os.path.dirname(__file__), '../output/{}_optimal_lineups.csv'.format(self.site))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
-                f.write('PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Own. Product,Optimal%,Minutes,Boom%,Bust%\n')
+                f.write('PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Own. Product,Own. Sum,Optimal%,Minutes,Boom%,Bust%\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
@@ -228,7 +230,7 @@ class NBA_Optimizer:
                     boom = sum(self.player_dict[player]['Boom'] for player in x)
                     bust = sum(self.player_dict[player]['Bust'] for player in x)
                     optimal = sum(self.player_dict[player]['Optimal'] for player in x)
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{}'.format(
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{}'.format(
                         x[0].replace('#', '-'),self.player_dict[x[0]]['ID'],
                         x[1].replace('#', '-'),self.player_dict[x[1]]['ID'],
                         x[2].replace('#', '-'),self.player_dict[x[2]]['ID'],
@@ -237,11 +239,11 @@ class NBA_Optimizer:
                         x[5].replace('#', '-'),self.player_dict[x[5]]['ID'],
                         x[6].replace('#', '-'),self.player_dict[x[6]]['ID'],
                         x[7].replace('#', '-'),self.player_dict[x[7]]['ID'],
-                        salary,round(fpts, 2),own_p,round(optimal, 2),mins,round(boom,2),round(bust,2)
+                        salary,round(fpts, 2),own_p,round(own_s, 2),round(optimal, 2),mins,round(boom,2),round(bust,2)
                     )
                     f.write('%s\n' % lineup_str)
             else:
-                f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Product,Optimal%,Minutes,Boom%,Bust%\n')
+                f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Product,Own. Sum,Optimal%,Minutes,Boom%,Bust%\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
@@ -251,7 +253,7 @@ class NBA_Optimizer:
                     boom = sum(self.player_dict[player]['Boom'] for player in x)
                     bust = sum(self.player_dict[player]['Bust'] for player in x)
                     optimal = sum(self.player_dict[player]['Optimal'] for player in x)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{}'.format(
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{},{}'.format(
                         self.player_dict[x[0]]['ID'],x[0].replace('#', '-'),
                         self.player_dict[x[1]]['ID'],x[1].replace('#', '-'),
                         self.player_dict[x[2]]['ID'],x[2].replace('#', '-'),
@@ -261,7 +263,7 @@ class NBA_Optimizer:
                         self.player_dict[x[6]]['ID'],x[6].replace('#', '-'),
                         self.player_dict[x[7]]['ID'],x[7].replace('#', '-'),
                         self.player_dict[x[8]]['ID'],x[8].replace('#', '-'),
-                        salary,round(fpts_p, 2),own_p,round(optimal, 2),mins,round(boom,2),round(bust,2)
+                        salary,round(fpts_p, 2),own_p,round(own_s, 2),round(optimal, 2),mins,round(boom,2),round(bust,2)
                     )
                     f.write('%s\n' % lineup_str)
         print('Output done.')
@@ -269,50 +271,67 @@ class NBA_Optimizer:
     def format_lineups(self):
         # TODO - fix dk
         if self.site == 'dk':
-            return
             temp = self.lineups.items()
             self.lineups = {}
             finalized = [None] * 8
             for fpts,lineup in temp:
-                for player in lineup:
-                    if 'PG' in self.player_dict[player]['Position']:
-                        if finalized[0] is None:
-                            finalized[0] = player
-                        elif finalized[5] is None:
-                            finalized[5] = player
-                        else:
-                            finalized[6] = player
-                    elif 'SG' in self.player_dict[player]['Position']:
-                        if finalized[1] is None:
-                            finalized[1] = player
-                        elif finalized[5] is None:
-                            finalized[5] = player
-                        else:
-                            finalized[6] = player
-                    elif 'SF' in self.player_dict[player]['Position']:
-                        if finalized[2] is None:
-                            finalized[2] = player
-                        elif finalized[5] is None:
-                            finalized[5] = player
-                        else:
-                            finalized[6] = player
-                    elif 'PF' in self.player_dict[player]['Position']:
-                        if finalized[3] is None:
-                            finalized[3] = player
-                        elif finalized[5] is None:
-                            finalized[5] = player
-                        else:
-                            finalized[6] = player
-                    elif 'C' in self.player_dict[player]['Position']:
-                        if finalized[4] is None:
-                            finalized[4] = player
-                        elif finalized[5] is None:
-                            finalized[5] = player
-                        else:
-                            finalized[6] = player
+                while None in finalized:
+                    for player in lineup:
+                        if 'PG' == choice(self.player_dict[player]['Position']):
+                            if finalized[0] is None:
+                                finalized[0] = player
+                            elif finalized[5] is None:
+                                finalized[5] = player
+                            elif finalized[7] is None:
+                                finalized[7] = player
+                            else:
+                                finalized[0] = player
+                                continue
+                                
+                        elif 'SG' == choice(self.player_dict[player]['Position']):
+                            if finalized[1] is None:
+                                finalized[1] = player
+                            elif finalized[5] is None:
+                                finalized[5] = player
+                            elif finalized[7] is None:
+                                finalized[7] = player
+                            else:
+                                finalized[1] = player
+                                continue
 
+                        elif 'SF' == choice(self.player_dict[player]['Position']):
+                            if finalized[2] is None:
+                                finalized[2] = player
+                            elif finalized[6] is None:
+                                finalized[6] = player
+                            elif finalized[7] is None:
+                                finalized[7] = player
+                            else:
+                                finalized[2] = player
+                                continue
+
+                        elif 'PF' == choice(self.player_dict[player]['Position']):
+                            if finalized[3] is None:
+                                finalized[3] = player
+                            elif finalized[6] is None:
+                                finalized[6] = player
+                            elif finalized[7] is None:
+                                finalized[7] = player
+                            else:
+                                finalized[3] = player
+                                continue
+
+                        elif 'C' == choice(self.player_dict[player]['Position']):
+                            if finalized[4] is None:
+                                finalized[4] = player
+                            elif finalized[7] is None:
+                                finalized[7] = player
+                            else:
+                                finalized[4] = player
+                                continue
+                   
                 self.lineups[fpts] = finalized
-                finalized = [None] * 7
+                finalized = [None] * 8
 
         else:
             temp = self.lineups
