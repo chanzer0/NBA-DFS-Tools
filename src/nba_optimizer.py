@@ -16,7 +16,7 @@ class NBA_Optimizer:
     lineups = {}
     unique_dict = {}
     player_dict = {}
-
+    
     def __init__(self, site=None, num_lineups=0, use_randomness=False, num_uniques=1):
         self.site = site
         self.num_lineups = int(num_lineups)
@@ -271,80 +271,21 @@ class NBA_Optimizer:
     def format_lineups(self):
         # TODO - fix dk
         if self.site == 'dk':
+            dk_roster = [['PG'], ['SG'], ['SF'], ['PF'], ['C'], ['SF', 'PF'], ['PG', 'SG'], ['PG','SG','SF','PF','C']]
             temp = self.lineups.items()
             self.lineups = {}
-            finalized = [None] * 8
-            for fpts,lineup in temp:
-                while None in finalized:
-                    shuffle(lineup)
-                    cont = False
-                    for player in lineup:
-                        if player in finalized:
-                            continue
-                        if cont:
-                            finalized = [None] * 8
-                            continue
-
-                        if 'PG' == choice(self.player_dict[player]['Position']):
-                            if finalized[0] is None:
-                                finalized[0] = player
-                            elif finalized[5] is None:
-                                finalized[5] = player
-                            elif finalized[7] is None:
-                                finalized[7] = player
-                            else:
-                                cont = True
-                                finalized[0] = player
-                                continue
-                                
-                        elif 'SG' == choice(self.player_dict[player]['Position']):
-                            if finalized[1] is None:
-                                finalized[1] = player
-                            elif finalized[5] is None:
-                                finalized[5] = player
-                            elif finalized[7] is None:
-                                finalized[7] = player
-                            else:
-                                cont = True
-                                finalized[1] = player
-                                continue
-
-                        elif 'SF' == choice(self.player_dict[player]['Position']):
-                            if finalized[2] is None:
-                                finalized[2] = player
-                            elif finalized[6] is None:
-                                finalized[6] = player
-                            elif finalized[7] is None:
-                                finalized[7] = player
-                            else:
-                                cont = True
-                                finalized[2] = player
-                                continue
-
-                        elif 'PF' == choice(self.player_dict[player]['Position']):
-                            if finalized[3] is None:
-                                finalized[3] = player
-                            elif finalized[6] is None:
-                                finalized[6] = player
-                            elif finalized[7] is None:
-                                finalized[7] = player
-                            else:
-                                cont = True
-                                finalized[3] = player
-                                continue
-
-                        elif 'C' == choice(self.player_dict[player]['Position']):
-                            if finalized[4] is None:
-                                finalized[4] = player
-                            elif finalized[7] is None:
-                                finalized[7] = player
-                            else:
-                                cont = True
-                                finalized[4] = player
-                                continue
-                   
-                self.lineups[fpts] = finalized
+            for i, (fpts,lineup) in enumerate(temp):
                 finalized = [None] * 8
+                while None in finalized:
+                    for i, roster_spot in enumerate(finalized):
+                        if roster_spot is None:
+                            eligible_players = []
+                            for player in lineup:
+                                if any(pos in dk_roster[i] for pos in self.player_dict[player]['Position']):
+                                    eligible_players.append(player)
+                            finalized[i] = choice(eligible_players)
+
+                self.lineups[fpts] = finalized
 
         else:
             temp = self.lineups
