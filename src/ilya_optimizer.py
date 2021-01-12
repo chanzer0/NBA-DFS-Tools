@@ -125,6 +125,11 @@ class NBA_Ilya_Optimizer:
            
 
     def output(self):
+        unique = {}
+        for fpts,lineup in self.lineups.items():
+            if lineup not in unique.values():
+                unique[fpts] = lineup
+        self.lineups = unique
         self.format_lineups()
         with open('optimal_lineups_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
             f.write('guard_point,guard_shooting,forward_small,forward_power,center,flex,flex,Fpts Projection,Salary,\n')

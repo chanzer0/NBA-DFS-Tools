@@ -63,6 +63,11 @@ class NBA_Optimizer:
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
+                    # if this player has a very low chance of reaching a GPP target score, do not play them
+                    if float(row['Boom%']) <= 1.0:
+                        del self.player_dict[player_name]
+                        continue
+
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
                     self.player_dict[player_name]['Boom'] = float(row['Boom%'])
                     self.player_dict[player_name]['Bust'] = float(row['Bust%'])
