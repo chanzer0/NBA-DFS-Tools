@@ -274,7 +274,6 @@ class NBA_Optimizer:
         print('Output done.')
 
     def format_lineups(self):
-        # TODO - fix dk
         if self.site == 'dk':
             dk_roster = [['PG'], ['SG'], ['SF'], ['PF'], ['C'], ['SF', 'PF'], ['PG', 'SG'], ['PG','SG','SF','PF','C']]
             temp = self.lineups.items()
