@@ -113,7 +113,7 @@ class NBA_Optimizer:
 
         # Set the salary constraints
         max_salary = 50000 if self.site == 'dk' else 60000
-        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= (max_salary - 100)
+        self.problem += lpSum(self.player_dict[player]['Salary'] * lp_variables[player] for player in self.player_dict) <= max_salary
 
         if self.site == 'dk':
             # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
@@ -286,7 +286,6 @@ class NBA_Optimizer:
                             finalized[i] = choice(eligible_players)
 
                 self.lineups[fpts] = finalized
-
         else:
             temp = self.lineups
             self.lineups = {}
