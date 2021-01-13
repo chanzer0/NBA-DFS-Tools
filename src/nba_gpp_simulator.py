@@ -231,8 +231,8 @@ class NBA_GPP_Simulator:
                 # Must have a reasonable salary
                 reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
                 if (salary >= reasonable_salary and salary <= self.salary):
-                    # Must have a reasonable projection (within 20% of optimal)
-                    reasonable_projection = self.optimal_score - (0.2*self.optimal_score)
+                    # Must have a reasonable projection (within 10% of optimal)
+                    reasonable_projection = self.optimal_score - (0.10*self.optimal_score)
                     if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
                         reject = False
                         if i % 1000 == 0:
