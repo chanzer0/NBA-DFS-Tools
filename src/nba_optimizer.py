@@ -87,11 +87,12 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '','StdDev': 0, 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '','StdDev': 0, 'Team': '', 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
                 self.player_dict[player_name]['Minutes'] = int(row['Minutes'])
                 self.player_dict[player_name]['Name'] = row['Name']
+                self.player_dict[player_name]['Team'] = row['Team']
 
                 # Need to handle MPE on draftkings
                 if self.site == 'dk':
@@ -167,6 +168,15 @@ class NBA_Optimizer:
             
 
         # Address limit rules if any
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'DeMarcus Cousins' == self.player_dict[player]['Name'] 
+        #                                                                         or 'Christian Wood' == self.player_dict[player]['Name']) <= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'Jae\'Sean Tate' == self.player_dict[player]['Name'] 
+        #                                                                         or 'P.J. Tucker' == self.player_dict[player]['Name']) <= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'Sterling Brown' == self.player_dict[player]['Name'] 
+        #                                                                         or 'P.J. Tucker' == self.player_dict[player]['Name']) <= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'Chris Silva' == self.player_dict[player]['Name'] 
+        #                                                                         or 'Precious Achiuwa' == self.player_dict[player]['Name']) <= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'HOU' == self.player_dict[player]['Team']) <= 3
         # if len(self.limit_rules) != 0:
         #     for limit_rule in self.limit_rules:
         #         self.problem += lpSum(lp_variables[player] for player in self.player_dict if limit_rule[0][0] == self.player_dict[player]['Name'] 

@@ -33,7 +33,7 @@ class NBA_GPP_Simulator:
         self.load_player_ids(player_path)
 
         if site == 'dk':
-            self.roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'F', 'G', 'UTIL']
+            self.roster_construction = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
             self.salary = 50000
         elif site == 'fd':
             self.roster_construction = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
@@ -232,7 +232,7 @@ class NBA_GPP_Simulator:
                 reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
                 if (salary >= reasonable_salary and salary <= self.salary):
                     # Must have a reasonable projection (within 10% of optimal)
-                    reasonable_projection = self.optimal_score - (0.10*self.optimal_score)
+                    reasonable_projection = self.optimal_score - (0.05*self.optimal_score)
                     if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
                         reject = False
                         if i % 1000 == 0:
