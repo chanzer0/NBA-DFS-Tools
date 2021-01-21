@@ -16,9 +16,11 @@ class NBA_GPP_Simulator:
     payout_structure = {}
     use_contest_data = False
     entry_fee = None
+    use_lineup_input = None
 
-    def __init__(self, site, field_size, num_iterations, use_contest_data):
+    def __init__(self, site, field_size, num_iterations, use_contest_data, use_lineup_input):
         self.site = site
+        self.use_lineup_input = use_lineup_input
         self.load_config()
         projection_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['projection_path']))
         self.load_projections(projection_path)
@@ -110,7 +112,6 @@ class NBA_GPP_Simulator:
     
         self.optimal_score = eval(score)
         
-
     # Load player IDs for exporting
     def load_player_ids(self, path):
         with open(path) as file:
@@ -154,8 +155,8 @@ class NBA_GPP_Simulator:
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                player_name = row['Name']
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'In Lineup': False}
+                player_name = row['Name'].replace('-', '#')
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ceiling': 0, 'Ownership': 0.1, 'In Lineup': False}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
 
@@ -192,6 +193,7 @@ class NBA_GPP_Simulator:
                 player_name = row['Name']
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
+                    self.player_dict[player_name]['Ceiling'] = float(row['Ceiling'])
 
     def select_random_player(self, position):
         plyr_list = []
@@ -216,33 +218,53 @@ class NBA_GPP_Simulator:
 
     def generate_field_lineups(self):
         print('Generating ' + str(self.field_size) + ' lineups.')
-        for i in range(self.field_size):
-            reject = True
-            while reject:
-                salary = 0
-                lineup = []
-                for player in self.player_dict:
-                    self.player_dict[player]['In Lineup'] = False
-                for pos in self.roster_construction:
-                    x = self.select_random_player(pos)
-                    self.player_dict[x]['In Lineup'] = True
-                    lineup.append(x)
-                    salary += self.player_dict[x]['Salary']
-                # Must have a reasonable salary
-                reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
-                if (salary >= reasonable_salary and salary <= self.salary):
-                    # Must have a reasonable projection (within 10% of optimal)
-                    reasonable_projection = self.optimal_score - (0.05*self.optimal_score)
-                    if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
-                        reject = False
-                        if i % 1000 == 0:
-                            print(i)
-            self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+        if self.use_lineup_input:
+            i = 0
+            path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(self.site, 'tournament_lineups.csv'))
+            with open(path) as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if i == self.field_size:
+                        break
+                    
+                    lineup = [row['PG'].split('(')[0][:-1].replace('-','#'), row['SG'].split('(')[0][:-1].replace('-','#'), 
+                                row['SF'].split('(')[0][:-1].replace('-','#'), row['PF'].split('(')[0][:-1].replace('-','#'), 
+                                row['C'].split('(')[0][:-1].replace('-','#'), row['G'].split('(')[0][:-1].replace('-','#'),
+                                row['F'].split('(')[0][:-1].replace('-','#'), row['UTIL'].split('(')[0][:-1].replace('-','#')]
+                    self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                    i += 1
+        else:
+            for i in range(self.field_size):
+                reject = True
+                while reject:
+                    salary = 0
+                    lineup = []
+                    for player in self.player_dict:
+                        self.player_dict[player]['In Lineup'] = False
+                    for pos in self.roster_construction:
+                        x = self.select_random_player(pos)
+                        self.player_dict[x]['In Lineup'] = True
+                        lineup.append(x)
+                        salary += self.player_dict[x]['Salary']
+                    # Must have a reasonable salary
+                    reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
+                    if (salary >= reasonable_salary and salary <= self.salary):
+                        # Must have a reasonable projection (within 10% of optimal)
+                        reasonable_projection = self.optimal_score - (0.05*self.optimal_score)
+                        if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
+                            reject = False
+                            if i % 1000 == 0:
+                                print(i)
+                self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+
         print(str(self.field_size) + ' field lineups successfully generated')
 
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
         for i in range(self.num_iterations):
+            if i % 1000 == 0:
+                print(i)
+
             temp_fpts_dict = {p: round((np.random.normal(stats['Fpts'], stats['StdDev'])), 2) for p,stats in self.player_dict.items()}
             field_score = {}
 
@@ -284,62 +306,63 @@ class NBA_GPP_Simulator:
         for index, x in self.field_lineups.items():
             salary = sum(self.player_dict[player]['Salary'] for player in x['Lineup'])
             fpts_p = sum(self.player_dict[player]['Fpts'] for player in x['Lineup'])
+            ceil_p = sum(self.player_dict[player]['Ceiling'] for player in x['Lineup'])
             own_p = np.prod([self.player_dict[player]['Ownership']/100.0 for player in x['Lineup']])
             win_p = round(x['Wins']/self.num_iterations * 100, 2)
             top10_p = round(x['Top10']/self.num_iterations * 100, 2)
             if self.site == 'dk':
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee/self.num_iterations * 100, 2)
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{}%,{}%,{}%,{}'.format(
-                        x['Lineup'][0], self.player_dict[x['Lineup'][0]]['ID'],
-                        x['Lineup'][1], self.player_dict[x['Lineup'][1]]['ID'],
-                        x['Lineup'][2], self.player_dict[x['Lineup'][2]]['ID'],
-                        x['Lineup'][3], self.player_dict[x['Lineup'][3]]['ID'],
-                        x['Lineup'][4], self.player_dict[x['Lineup'][4]]['ID'],
-                        x['Lineup'][5], self.player_dict[x['Lineup'][5]]['ID'],
-                        x['Lineup'][6], self.player_dict[x['Lineup'][6]]['ID'],
-                        x['Lineup'][7], self.player_dict[x['Lineup'][7]]['ID'],
-                        fpts_p,salary,win_p,top10_p,roi_p,own_p
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}%,{}'.format(
+                        x['Lineup'][0].replace('#', '-'), self.player_dict[x['Lineup'][0].replace('-', '#')]['ID'],
+                        x['Lineup'][1].replace('#', '-'), self.player_dict[x['Lineup'][1].replace('-', '#')]['ID'],
+                        x['Lineup'][2].replace('#', '-'), self.player_dict[x['Lineup'][2].replace('-', '#')]['ID'],
+                        x['Lineup'][3].replace('#', '-'), self.player_dict[x['Lineup'][3].replace('-', '#')]['ID'],
+                        x['Lineup'][4].replace('#', '-'), self.player_dict[x['Lineup'][4].replace('-', '#')]['ID'],
+                        x['Lineup'][5].replace('#', '-'), self.player_dict[x['Lineup'][5].replace('-', '#')]['ID'],
+                        x['Lineup'][6].replace('#', '-'), self.player_dict[x['Lineup'][6].replace('-', '#')]['ID'],
+                        x['Lineup'][7].replace('#', '-'), self.player_dict[x['Lineup'][7].replace('-', '#')]['ID'],
+                        fpts_p,ceil_p,salary,win_p,top10_p,roi_p,own_p
                     )
                 else:
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{}%,{}%,{}'.format(
-                        x['Lineup'][0], self.player_dict[x['Lineup'][0]]['ID'],
-                        x['Lineup'][1], self.player_dict[x['Lineup'][1]]['ID'],
-                        x['Lineup'][2], self.player_dict[x['Lineup'][2]]['ID'],
-                        x['Lineup'][3], self.player_dict[x['Lineup'][3]]['ID'],
-                        x['Lineup'][4], self.player_dict[x['Lineup'][4]]['ID'],
-                        x['Lineup'][5], self.player_dict[x['Lineup'][5]]['ID'],
-                        x['Lineup'][6], self.player_dict[x['Lineup'][6]]['ID'],
-                        x['Lineup'][7], self.player_dict[x['Lineup'][7]]['ID'],
-                        fpts_p,salary,win_p,top10_p,own_p
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}'.format(
+                        x['Lineup'][0].replace('#', '-'), self.player_dict[x['Lineup'][0]]['ID'],
+                        x['Lineup'][1].replace('#', '-'), self.player_dict[x['Lineup'][1]]['ID'],
+                        x['Lineup'][2].replace('#', '-'), self.player_dict[x['Lineup'][2]]['ID'],
+                        x['Lineup'][3].replace('#', '-'), self.player_dict[x['Lineup'][3]]['ID'],
+                        x['Lineup'][4].replace('#', '-'), self.player_dict[x['Lineup'][4]]['ID'],
+                        x['Lineup'][5].replace('#', '-'), self.player_dict[x['Lineup'][5]]['ID'],
+                        x['Lineup'][6].replace('#', '-'), self.player_dict[x['Lineup'][6]]['ID'],
+                        x['Lineup'][7].replace('#', '-'), self.player_dict[x['Lineup'][7]]['ID'],
+                        fpts_p,ceil_p,salary,win_p,top10_p,own_p
                     )
             elif self.site == 'fd':
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee/self.num_iterations * 100, 2)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{}%,{}%,{}%,{}'.format(
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][0],
-                        self.player_dict[x['Lineup'][1]]['ID'], x['Lineup'][1],
-                        self.player_dict[x['Lineup'][2]]['ID'], x['Lineup'][2],
-                        self.player_dict[x['Lineup'][3]]['ID'], x['Lineup'][3],
-                        self.player_dict[x['Lineup'][4]]['ID'], x['Lineup'][4],
-                        self.player_dict[x['Lineup'][5]]['ID'], x['Lineup'][5],
-                        self.player_dict[x['Lineup'][6]]['ID'], x['Lineup'][6],
-                        self.player_dict[x['Lineup'][7]]['ID'], x['Lineup'][7],
-                        self.player_dict[x['Lineup'][8]]['ID'], x['Lineup'][8],
-                        fpts_p,salary,win_p,top10_p,roi_p,own_p
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}%,{}'.format(
+                        self.player_dict[x['Lineup'][0].replace('-', '#')]['ID'], x['Lineup'][0].replace('#', '-'),
+                        self.player_dict[x['Lineup'][1].replace('-', '#')]['ID'], x['Lineup'][1].replace('#', '-'),
+                        self.player_dict[x['Lineup'][2].replace('-', '#')]['ID'], x['Lineup'][2].replace('#', '-'),
+                        self.player_dict[x['Lineup'][3].replace('-', '#')]['ID'], x['Lineup'][3].replace('#', '-'),
+                        self.player_dict[x['Lineup'][4].replace('-', '#')]['ID'], x['Lineup'][4].replace('#', '-'),
+                        self.player_dict[x['Lineup'][5].replace('-', '#')]['ID'], x['Lineup'][5].replace('#', '-'),
+                        self.player_dict[x['Lineup'][6].replace('-', '#')]['ID'], x['Lineup'][6].replace('#', '-'),
+                        self.player_dict[x['Lineup'][7].replace('-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
+                        self.player_dict[x['Lineup'][8].replace('-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
+                        fpts_p,ceil_p,salary,win_p,top10_p,roi_p,own_p
                     )
                 else:
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{}%,{}%,{}'.format(
-                        self.player_dict[x['Lineup'][0]]['ID'], x['Lineup'][0],
-                        self.player_dict[x['Lineup'][1]]['ID'], x['Lineup'][1],
-                        self.player_dict[x['Lineup'][2]]['ID'], x['Lineup'][2],
-                        self.player_dict[x['Lineup'][3]]['ID'], x['Lineup'][3],
-                        self.player_dict[x['Lineup'][4]]['ID'], x['Lineup'][4],
-                        self.player_dict[x['Lineup'][5]]['ID'], x['Lineup'][5],
-                        self.player_dict[x['Lineup'][6]]['ID'], x['Lineup'][6],
-                        self.player_dict[x['Lineup'][7]]['ID'], x['Lineup'][7],
-                        self.player_dict[x['Lineup'][8]]['ID'], x['Lineup'][8],
-                        fpts_p,salary,win_p,top10_p,own_p
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}'.format(
+                        self.player_dict[x['Lineup'][0].replace('-', '#')]['ID'], x['Lineup'][0].replace('#', '-'),
+                        self.player_dict[x['Lineup'][1].replace('-', '#')]['ID'], x['Lineup'][1].replace('#', '-'),
+                        self.player_dict[x['Lineup'][2].replace('-', '#')]['ID'], x['Lineup'][2].replace('#', '-'),
+                        self.player_dict[x['Lineup'][3].replace('-', '#')]['ID'], x['Lineup'][3].replace('#', '-'),
+                        self.player_dict[x['Lineup'][4].replace('-', '#')]['ID'], x['Lineup'][4].replace('#', '-'),
+                        self.player_dict[x['Lineup'][5].replace('-', '#')]['ID'], x['Lineup'][5].replace('#', '-'),
+                        self.player_dict[x['Lineup'][6].replace('-', '#')]['ID'], x['Lineup'][6].replace('#', '-'),
+                        self.player_dict[x['Lineup'][7].replace('-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
+                        self.player_dict[x['Lineup'][8].replace('-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
+                        fpts_p,ceil_p,salary,win_p,top10_p,own_p
                     )
             unique[index] = lineup_str
 
@@ -347,14 +370,14 @@ class NBA_GPP_Simulator:
         with open(out_path, 'w') as f:
             if self.site == 'dk':
                 if self.use_contest_data:
-                    f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
+                    f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
                 else:
-                    f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Salary,Win %,Top 10%,Proj. Own. Product\n')
+                    f.write('PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product\n')
             elif self.site == 'fd':
                 if self.use_contest_data:
-                    f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
+                    f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
                 else:
-                    f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Salary,Win %,Top 10%,Proj. Own. Product\n')
+                    f.write('PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product\n')
 
             for fpts, lineup_str in unique.items():
                 f.write('%s\n' % lineup_str)

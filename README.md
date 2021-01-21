@@ -41,6 +41,8 @@ Where:
 
         ![Contest structure input](readme_images/contest_structure_input.png)
 
+    - Additionally, you may opt to upload lineups from a file rather than have them randomly generated/simulated. To specify this option, you will add `file` as a flag in your command like so: `python .\main.py <site> sim cid file 10000`. This allows you to upload specifically-tailored lineups that you feel are more representative of your contest than the ones generated. It also has the added benefit of being much faster than generating lineups.
+
 `<num_lineups>` is the number of lineups you want to generate when using the `opto` process.
 
 `<num_uniques>` defines the number of players that must differ from one lineup to the next. **NOTE** - this is enforced *after* crunching, so 1000 lineups may be whittled down to 7-800 depending on this constraint. Enforcing this *after* crunching aids in the speed of crunching. Expect approximately 5-15% of lineups to be "culled" by this constraint and plan accordingly. The more players available to crunch, the lower this percentage will be.

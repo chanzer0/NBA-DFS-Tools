@@ -176,7 +176,7 @@ class NBA_Optimizer:
         #                                                                         or 'P.J. Tucker' == self.player_dict[player]['Name']) <= 1
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'Chris Silva' == self.player_dict[player]['Name'] 
         #                                                                         or 'Precious Achiuwa' == self.player_dict[player]['Name']) <= 1
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'HOU' == self.player_dict[player]['Team']) <= 3
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if 'CLE' == self.player_dict[player]['Team']) <= 2
         # if len(self.limit_rules) != 0:
         #     for limit_rule in self.limit_rules:
         #         self.problem += lpSum(lp_variables[player] for player in self.player_dict if limit_rule[0][0] == self.player_dict[player]['Name'] 

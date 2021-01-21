@@ -34,6 +34,7 @@ class NBA_Ilya_Optimizer:
                 player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
+                    self.player_dict[player_name]['Ceiling'] = float(row['Ceiling'])
 
     # Load projections from file
     def load_projections(self, path):
@@ -42,7 +43,7 @@ class NBA_Ilya_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': [], 'ID': 0, 'Salary': 0, 'Ceiling': 0, 'StdDev': 0, 'Ownership': 0}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
 
                 self.player_dict[player_name]['ID'] = row['Player ID']
@@ -137,7 +138,8 @@ class NBA_Ilya_Optimizer:
                 salary = sum(self.player_dict[player]['Salary'] for player in x)
                 fpts_p = sum(self.player_dict[player]['Fpts'] for player in x)
                 own_p = sum(self.player_dict[player]['Ownership'] for player in x)
-                lineup_str = '{},{},{},{},{},{},{},{},{},{}'.format(
+                ceiling = sum(self.player_dict[player]['Ceiling'] for player in x)
+                lineup_str = '{},{},{},{},{},{},{},{},{},{},{}'.format(
                     x[0].replace('#', '-'),
                     x[1].replace('#', '-'),
                     x[2].replace('#', '-'),
@@ -145,7 +147,7 @@ class NBA_Ilya_Optimizer:
                     x[4].replace('#', '-'),
                     x[5].replace('#', '-'),
                     x[6].replace('#', '-'),
-                    round(fpts_p, 2),round(salary, 2),round(own_p, 2)
+                    round(fpts_p, 2),round(salary, 2),round(own_p, 2),round(ceiling, 2)
                 )
                 f.write('%s\n' % lineup_str)
         with open('optimal_lineups_upload_{}.csv'.format(datetime.now().strftime("%d-%m-%Y_%H%M%S")), 'w') as f:
