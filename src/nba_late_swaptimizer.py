@@ -23,7 +23,11 @@ class NBA_Late_Swaptimizer:
         self.load_boom_bust(boom_bust_path)
 
         lineup_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['late_swap_path']))
-        self.load_live_lineups(lineup_path)
+
+        if self.site == 'dk':
+            self.load_live_dk_lineups(lineup_path)
+        else:
+            self.load_live_fd_lineups(lineup_path)
 
     # Load config from file
     def load_config(self):
@@ -71,7 +75,7 @@ class NBA_Late_Swaptimizer:
                     self.player_dict[player_name]['Position'] = row['Position']
 
     # Load the late-swap lineups we want to alter
-    def load_live_lineups(self, path):
+    def load_live_dk_lineups(self, path):
         # Read live lineups into a dictionary
         lineups = {}
         with open(path) as file:
@@ -100,6 +104,14 @@ class NBA_Late_Swaptimizer:
                         # times are parsed as AM, but are actually PM - i.e. 0700 (AM) needs to be 1900 (700 PM), thus add 12 hours
                         self.player_dict[player_name]['Start Time'] = date_obj + datetime.timedelta(hours=12) 
         return lineups
+
+    def load_live_fd_lineups(self, path):
+        # Read live lineups into a dictionary
+        lineups = {}
+        with open(path) as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                pass
 
 
     def swaptimize(self):

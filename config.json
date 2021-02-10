@@ -5,7 +5,10 @@
     "boom_bust_path": "boom_bust.csv",
     "late_swap_path": "live_lineups.csv",
     "contest_structure_path": "contest_structure.csv",
-	"limit": {
-		"1": ["Andre Drummond","JaVale McGee"]
-	}
+	"at_most": {
+        "1": ["Tyrese Maxey", "Danny Green"]
+    },
+    "at_least": {
+        "1": ["LaMelo Ball"]
+    }
 }
