@@ -6,9 +6,7 @@
     "late_swap_path": "live_lineups.csv",
     "contest_structure_path": "contest_structure.csv",
 	"at_most": {
-        "1": ["Tyrese Maxey", "Danny Green"]
     },
     "at_least": {
-        "1": ["LaMelo Ball"]
     }
 }

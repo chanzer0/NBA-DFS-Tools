@@ -296,7 +296,7 @@ class NBA_Optimizer:
                         self.player_dict[x[6]]['ID'],x[6].replace('#', '-'),
                         self.player_dict[x[7]]['ID'],x[7].replace('#', '-'),
                         self.player_dict[x[8]]['ID'],x[8].replace('#', '-'),
-                        salary,round(fpts_p, 2),round(ceil, 2),own_p,optimal,mins,boom,bust)
+                        salary,round(fpts_p, 2),round(ceil, 2),own_p,optimal,mins,boom,bust
                     )
                     f.write('%s\n' % lineup_str)
         print('Output done.')
