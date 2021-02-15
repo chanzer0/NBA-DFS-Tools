@@ -12,6 +12,7 @@ class NBA_Optimizer:
     output_dir = None
     num_lineups = None
     num_uniques = None
+    max_own_sum = None
     use_randomness = None
     team_list = []
     lineups = {}
@@ -39,7 +40,7 @@ class NBA_Optimizer:
         boom_bust_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(site, self.config['boom_bust_path']))
         self.load_boom_bust(boom_bust_path)
 
-        self.load_rules(self.config["at_most"], self.config["at_least"])
+        self.load_rules(self.config["at_most"], self.config["at_least"], self.config["max_own_sum"])
         
     # Load config from file
     def load_config(self):
@@ -59,9 +60,10 @@ class NBA_Optimizer:
                     else:
                         self.player_dict[player_name]['ID'] = row['Id']
 
-    def load_rules(self, at_most, at_least):
+    def load_rules(self, at_most, at_least, max_own_sum):
         self.at_most = at_most
         self.at_least = at_least
+        self.max_own_sum = max_own_sum
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
@@ -71,7 +73,7 @@ class NBA_Optimizer:
                 player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     # if this player has a very low chance of reaching a GPP target score, do not play them
-                    if float(row['Boom%']) < 2.0:
+                    if float(row['Boom%']) < 3.0:
                         del self.player_dict[player_name]
                         continue
 
@@ -89,13 +91,13 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                     player_name = row['Name'].replace('-', '#')
-                    if float(row['Fpts']) == 0.0:
+                    if float(row['Fpts']) < 15.0:
                         continue
                     
                     self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '','StdDev': 0, 'Team': '', 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}
                     self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                     self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
-                    self.player_dict[player_name]['Minutes'] = int(row['Minutes'])
+                    self.player_dict[player_name]['Minutes'] = float(row['Minutes'])
                     self.player_dict[player_name]['Name'] = row['Name']
                     self.player_dict[player_name]['Team'] = row['Team']
 
@@ -179,10 +181,21 @@ class NBA_Optimizer:
 
         # Address limit rules if any
         for number, players in self.at_least.items():
-            self.problem += lpSum(lp_variables[player] for player in players) >= int(number)
+            if len(players) > 1:
+                self.problem += lpSum(lp_variables[player] for player in players) >= int(number)
 
         for number, players in self.at_most.items():
-            self.problem += lpSum(lp_variables[player] for player in players) <= int(number)
+            if len(players) > 1:
+                self.problem += lpSum(lp_variables[player] for player in players) <= int(number)
+
+        # At least one sub-10 percenter
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
+
+        # Max ownership sum
+        self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
+        
+        # Ceiling guys
+        self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
 
         # Crunch!
         for i in range(self.num_lineups):
@@ -204,11 +217,12 @@ class NBA_Optimizer:
 
             # Dont generate the same lineup twice
             if self.use_randomness:
-                # Enforce this by lowering the objective i.e. producing sub-optimal results
+                # Set a new random fpts projection within their distribution
                 self.problem += lpSum(np.random.normal(self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev'])* lp_variables[player] for player in self.player_dict)
             else:
-                # Set a new random fpts projection within their distribution
+                # Enforce this by lowering the objective i.e. producing sub-optimal results
                 self.problem += lpSum(self.player_dict[player]['Fpts'] * lp_variables[player] for player in self.player_dict) <= (fpts - 0.01)
+
 
             # Set number of unique players between lineups
             # data = sorted(self.player_dict.items())
@@ -263,6 +277,7 @@ class NBA_Optimizer:
                     boom_p = np.prod([self.player_dict[player]['Boom']/100.0 for player in x])
                     bust_p = np.prod([self.player_dict[player]['Bust']/100.0 for player in x])
                     optimal_p = np.prod([self.player_dict[player]['Optimal']/100.0 for player in x])
+                    # print(sum(self.player_dict[player]['Ownership'] for player in x))
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{}'.format(
                         x[0].replace('#', '-'),self.player_dict[x[0]]['ID'],
                         x[1].replace('#', '-'),self.player_dict[x[1]]['ID'],

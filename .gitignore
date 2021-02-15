@@ -1,5 +1,4 @@
 .vscode/*
 *.pyc
 setup.py
-src/nba_showdown_optimizer.py
 historical_data/*

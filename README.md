@@ -43,6 +43,7 @@ Where:
         ![Contest structure input](readme_images/contest_structure_input.png)
 
     - Additionally, you may opt to upload lineups from a file rather than have them randomly generated/simulated. To specify this option, you will add `file` as a flag in your command like so: `python .\main.py <site> sim cid file 10000`. This allows you to upload specifically-tailored lineups that you feel are more representative of your contest than the ones generated. It also has the added benefit of being much faster than generating lineups.
+- `sd` for running showdown crunches, with or without randomness
 
 `<num_lineups>` is the number of lineups you want to generate when using the `opto` process.
 

@@ -8,5 +8,6 @@
 	"at_most": {
     },
     "at_least": {
-    }
+    },
+    "max_own_sum": 175
 }

@@ -1,5 +1,3 @@
-
-
 import sys
 from nfl_optimizer import *
 from nba_optimizer import *
@@ -7,6 +5,7 @@ from nba_gpp_simulator import *
 from nba_evolutionary_lineup_selector import *
 from nba_showdown_optimizer import *
 from windows_inhibitor import *
+from nba_late_swaptimizer import *
 from tennis_optimizer import *
 
 def main(arguments):
@@ -62,7 +61,7 @@ def main(arguments):
         sim.output()
 
     elif process == 'swaptimize':
-        opto = NBA_Optimizer(site)
+        opto = NBA_Late_Swaptimizer(site)
         opto.swaptimize()
 
 

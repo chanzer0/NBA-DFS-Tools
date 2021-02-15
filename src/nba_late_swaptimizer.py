@@ -1,5 +1,8 @@
 import json, csv, os
 import numpy as np
+import time
+import pytz
+from datetime import datetime
 from pulp import *
 
 class NBA_Late_Swaptimizer:
@@ -46,6 +49,7 @@ class NBA_Late_Swaptimizer:
                         self.player_dict[player_name]['ID'] = int(row['ID'])
                     else:
                         self.player_dict[player_name]['ID'] = row['Id']
+                    self.player_dict[player_name]['Start Time'] = row['Game Info'].split(' ')[2]
 
 
     # Need standard deviations to perform randomness
@@ -64,7 +68,7 @@ class NBA_Late_Swaptimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'Game Time': None}
+                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ownership': 0.1, 'Start Time': None}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(row['Salary'].replace(',',''))
 
@@ -93,16 +97,6 @@ class NBA_Late_Swaptimizer:
                         'F': (row['F'][:-11],0), 
                         'UTIL': (row['UTIL'][:-11],0)
                     }
-
-                # Player start times are in here
-                elif None in row:
-                    player_name = row[None][1]
-                    game_info = row[None][5]
-                    if player_name in self.player_dict:
-                        start_time = game_info.split(' ', 1)[-1][:-5]
-                        date_obj = datetime.datetime.strptime(start_time, '%m/%d/%Y %H:%M')
-                        # times are parsed as AM, but are actually PM - i.e. 0700 (AM) needs to be 1900 (700 PM), thus add 12 hours
-                        self.player_dict[player_name]['Start Time'] = date_obj + datetime.timedelta(hours=12) 
         return lineups
 
     def load_live_fd_lineups(self, path):
@@ -116,20 +110,26 @@ class NBA_Late_Swaptimizer:
 
     def swaptimize(self):
         lineup_path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(self.site, self.config['late_swap_path']))
-        live_lineups = self.load_live_lineups(lineup_path)
-        print(live_lineups)
-
+        if self.site == 'dk':
+            live_lineups = self.load_live_dk_lineups(lineup_path)
+        else:
+            live_lineups = self.load_live_fd_lineups(lineup_path)
+        
         # Need to indicate whether or not a player is "locked" or "swappable" (1 and 0, respectively)
         # Current time in EST, since thats what DK uses in their files
-        curr_time = datetime.datetime.now(pytz.timezone('EST'))
-        for entry_id,players in live_lineups.items():
-            print(players['PG'])
-            for pos in players:
-                player_name = players[pos][0]
-                if self.player_dict[player_name]['Start Time'] is not None:
-                    player_start_time = pytz.timezone('EST').localize(self.player_dict[player_name]['Start Time'])
-                    # If their game has already started, we need to "lock" them
-                    if curr_time > player_start_time:
-                        players[pos] = (players[pos][0], 1)
+        now_est = datetime.now(pytz.timezone('EST'))
+        for _id,lineup in live_lineups.items():
+            for pos in lineup:
+                player_start_hour = int(self.player_dict[lineup[pos][0]]['Start Time'].split(':')[0])
+                player_start_minute = int(self.player_dict[lineup[pos][0]]['Start Time'].split(':')[1][:-2])
+                print(now_est.hour, now_est.minute)
+                print(player_start_hour, player_start_minute)
+                if now_est.hour > player_start_hour:
+                    if now_est.minute > player_start_minute:
+                        # Lock the player
+                        lineup[pos] = (lineup[pos][0], 1)
+            
+            print(lineup)
+
 
             
