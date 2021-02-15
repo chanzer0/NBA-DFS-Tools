@@ -180,13 +180,13 @@ class NBA_Optimizer:
                 self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == team) <= 4  
 
         # Address limit rules if any
-        for number, players in self.at_least.items():
-            if len(players) > 1:
-                self.problem += lpSum(lp_variables[player] for player in players) >= int(number)
+        for number,groups in self.at_least.items():
+            for group in groups:
+                self.problem += lpSum(lp_variables[player] for player in group) >= int(number)
 
-        for number, players in self.at_most.items():
-            if len(players) > 1:
-                self.problem += lpSum(lp_variables[player] for player in players) <= int(number)
+        for number,groups in self.at_most.items():
+            for group in groups:
+                self.problem += lpSum(lp_variables[player] for player in group) <= int(number)
 
         # # At least one sub-10 percenter
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
