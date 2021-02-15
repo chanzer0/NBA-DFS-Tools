@@ -188,14 +188,14 @@ class NBA_Optimizer:
             if len(players) > 1:
                 self.problem += lpSum(lp_variables[player] for player in players) <= int(number)
 
-        # At least one sub-10 percenter
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
+        # # At least one sub-10 percenter
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
 
-        # Max ownership sum
-        self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
+        # # Max ownership sum
+        # self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
         
-        # Ceiling guys
-        self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
+        # # Ceiling guys
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
 
         # Crunch!
         for i in range(self.num_lineups):
