@@ -6,7 +6,7 @@ from nba_evolutionary_lineup_selector import *
 from nba_showdown_optimizer import *
 from windows_inhibitor import *
 from nba_late_swaptimizer import *
-from tennis_optimizer import *
+# from tennis_optimizer import *
 
 def main(arguments):
     if len(arguments) < 3 or len(arguments) > 6:
@@ -16,11 +16,11 @@ def main(arguments):
     site = arguments[1]
     process = arguments[2]
 
-    if process == 'tennis':
-        num_lineups = arguments[3]
-        opto = TennisOptimizer(site, num_lineups)
-        opto.optimize()
-        opto.output()
+    # if process == 'tennis':
+    #     num_lineups = arguments[3]
+    #     opto = TennisOptimizer(site, num_lineups)
+    #     opto.optimize()
+    #     opto.output()
 
     if process == 'opto':
         num_lineups = arguments[3]
