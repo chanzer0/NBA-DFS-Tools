@@ -417,5 +417,5 @@ class NBA_GPP_Simulator:
                 win_p = round(data['Wins']/self.num_iterations * 100, 2)
                 top10_p = round(data['Top10']/self.num_iterations / 10 * 100, 2)
                 proj_own = self.player_dict[player]['Ownership']
-                f.write('{},{}%,{}%,{}%,{}%\n'.format(player, win_p, top10_p, field_p, proj_own))
+                f.write('{},{}%,{}%,{}%,{}%\n'.format(player.replace('#', '-'), win_p, top10_p, field_p, proj_own))
         

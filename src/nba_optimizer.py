@@ -181,15 +181,13 @@ class NBA_Optimizer:
 
         # Address limit rules if any
         for number,groups in self.at_least.items():
-            for group in groups:
-                self.problem += lpSum(lp_variables[player] for player in group) >= int(number)
+            self.problem += lpSum(lp_variables[player] for player in groups) >= int(number)
 
         for number,groups in self.at_most.items():
-            for group in groups:
-                self.problem += lpSum(lp_variables[player] for player in group) <= int(number)
+            self.problem += lpSum(lp_variables[player] for player in groups) <= int(number)
 
         # # At least one sub-10 percenter
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
 
         # # Max ownership sum
         # self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
@@ -202,9 +200,9 @@ class NBA_Optimizer:
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'IND') <= 1
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'HOU') <= 2
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'NYK') <= 1
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'PHI') <= 1
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BKN' or
-        #                                                                              self.player_dict[player]['Team'] == 'SAC') >= 3
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR') >= 2
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR' or
+        #                                                                              self.player_dict[player]['Team'] == 'OKC') >= 4
 
         # Crunch!
         for i in range(self.num_lineups):
