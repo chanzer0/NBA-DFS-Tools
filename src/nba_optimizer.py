@@ -73,7 +73,7 @@ class NBA_Optimizer:
                 player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     # if this player has a very low chance of reaching a GPP target score, do not play them
-                    if float(row['Boom%']) < 3.0:
+                    if float(row['Boom%']) < 0.0:
                         del self.player_dict[player_name]
                         continue
 
@@ -91,7 +91,7 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                     player_name = row['Name'].replace('-', '#')
-                    if float(row['Fpts']) < 15.0:
+                    if float(row['Fpts']) < 0.0:
                         continue
                     
                     self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '','StdDev': 0, 'Team': '', 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}
@@ -182,11 +182,11 @@ class NBA_Optimizer:
         # Address limit rules if any
         for number,groups in self.at_least.items():
             for group in groups:
-                self.problem += lpSum(lp_variables[player] for player in group) >= int(number)
+                self.problem += lpSum(lp_variables[player.replace('-', '#')] for player in group) >= int(number)
 
         for number,groups in self.at_most.items():
             for group in groups:
-                self.problem += lpSum(lp_variables[player] for player in group) <= int(number)
+                self.problem += lpSum(lp_variables[player.replace('-', '#')] for player in group) <= int(number)
 
         # # At least one sub-10 percenter
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
@@ -197,10 +197,12 @@ class NBA_Optimizer:
         # # Ceiling guys
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
 
-        # # Limit teams
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR') >= 2
+        # # # Limit teams
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BKN') <= 2
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BOS') <= 2
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'DEN') <= 2
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR' or
-        #                                                                              self.player_dict[player]['Team'] == 'OKC') >= 4
+        #                                                                              self.player_dict[player]['Team'] == 'OKC') >= 3
 
         # Crunch!
         for i in range(self.num_lineups):
