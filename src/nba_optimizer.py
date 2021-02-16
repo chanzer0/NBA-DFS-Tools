@@ -189,7 +189,7 @@ class NBA_Optimizer:
                 self.problem += lpSum(lp_variables[player] for player in group) <= int(number)
 
         # # At least one sub-10 percenter
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 1
 
         # # Max ownership sum
         # self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
@@ -199,6 +199,7 @@ class NBA_Optimizer:
 
         # # Limit teams
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'ATL') <= 1
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'IND') <= 1
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'HOU') <= 2
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'NYK') <= 1
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'PHI') <= 1

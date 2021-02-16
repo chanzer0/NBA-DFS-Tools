@@ -216,23 +216,40 @@ class NBA_GPP_Simulator:
         prob_list = [float(i)/sum(prob_list) for i in prob_list]
         return np.random.choice(a=plyr_list, p=prob_list)
 
+    def remap(self, fieldnames):
+        return ['PG', 'PG2','SG', 'SG2','SF', 'SF2','PF', 'PF2','C']
+
     def generate_field_lineups(self):
         print('Generating ' + str(self.field_size) + ' lineups.')
         if self.use_lineup_input:
             i = 0
             path = os.path.join(os.path.dirname(__file__), '../{}_data/{}'.format(self.site, 'tournament_lineups.csv'))
             with open(path) as file:
-                reader = csv.DictReader(file)
-                for row in reader:
-                    if i == self.field_size:
-                        break
-                    
-                    lineup = [row['PG'].split('(')[0][:-1].replace('-','#'), row['SG'].split('(')[0][:-1].replace('-','#'), 
-                                row['SF'].split('(')[0][:-1].replace('-','#'), row['PF'].split('(')[0][:-1].replace('-','#'), 
-                                row['C'].split('(')[0][:-1].replace('-','#'), row['G'].split('(')[0][:-1].replace('-','#'),
-                                row['F'].split('(')[0][:-1].replace('-','#'), row['UTIL'].split('(')[0][:-1].replace('-','#')]
-                    self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
-                    i += 1
+                if self.site == 'dk':
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        if i == self.field_size:
+                            break
+                        lineup = [row['PG'].split('(')[0][:-1].replace('-','#'), row['SG'].split('(')[0][:-1].replace('-','#'), 
+                                    row['SF'].split('(')[0][:-1].replace('-','#'), row['PF'].split('(')[0][:-1].replace('-','#'), 
+                                    row['C'].split('(')[0][:-1].replace('-','#'), row['G'].split('(')[0][:-1].replace('-','#'),
+                                    row['F'].split('(')[0][:-1].replace('-','#'), row['UTIL'].split('(')[0][:-1].replace('-','#')]
+                        self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                        i += 1
+                else:
+                    reader = csv.reader(file)
+                    fieldnames = self.remap(next(reader))
+                    for row in reader:
+                        row = dict(zip(fieldnames, row))
+                        if i == self.field_size:
+                            break
+                        lineup = [row['PG'].split(':')[1].replace('-','#'),row['PG2'].split(':')[1].replace('-','#'),
+                                row['SG'].split(':')[1].replace('-','#'),row['SG2'].split(':')[1].replace('-','#'),
+                                row['SF'].split(':')[1].replace('-','#'),row['SF2'].split(':')[1].replace('-','#'),
+                                row['PF'].split(':')[1].replace('-','#'),row['PF2'].split(':')[1].replace('-','#'),
+                                row['C'].split(':')[1].replace('-','#')]
+                        self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                        i += 1
         else:
             for i in range(self.field_size):
                 reject = True
@@ -267,7 +284,7 @@ class NBA_GPP_Simulator:
 
             temp_fpts_dict = {p: round((np.random.normal(stats['Fpts'], stats['StdDev'])), 2) for p,stats in self.player_dict.items()}
             field_score = {}
-
+            
             for index,values in self.field_lineups.items():
                 fpts_sim = sum(temp_fpts_dict[player] for player in values['Lineup'])
                 field_score[fpts_sim] = {'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
