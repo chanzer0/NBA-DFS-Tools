@@ -197,12 +197,12 @@ class NBA_Optimizer:
         # # Ceiling guys
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
 
-        # # # Limit teams
+        # # Limit teams
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BKN') <= 2
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BOS') <= 2
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'DEN') <= 2
         # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR' or
         #                                                                              self.player_dict[player]['Team'] == 'OKC') >= 3
+        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BOS' or
+        #                                                                              self.player_dict[player]['Team'] == 'DEN') <= 3
 
         # Crunch!
         for i in range(self.num_lineups):

@@ -181,7 +181,7 @@ class NBA_GPP_Simulator:
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                player_name = row['Name']
+                player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['Ownership'] = float(row['Ownership %'])
     
@@ -190,7 +190,7 @@ class NBA_GPP_Simulator:
         with open(path) as file:
             reader = csv.DictReader(file)
             for row in reader:
-                player_name = row['Name']
+                player_name = row['Name'].replace('-', '#')
                 if player_name in self.player_dict:
                     self.player_dict[player_name]['StdDev'] = float(row['Std Dev'])
                     self.player_dict[player_name]['Ceiling'] = float(row['Ceiling'])
