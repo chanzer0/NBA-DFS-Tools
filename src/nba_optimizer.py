@@ -195,22 +195,6 @@ class NBA_Optimizer:
             self.problem += plp.lpSum(lp_variables[player]
                                       for player in self.player_dict) == 8
         else:
-            # Need 2 PG
-            self.problem += plp.lpSum(lp_variables[player]
-                                      for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) == 2
-            # Need 2 SG
-            self.problem += plp.lpSum(lp_variables[player]
-                                      for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) == 2
-            # Need 2 SF
-            self.problem += plp.lpSum(lp_variables[player]
-                                      for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) == 2
-            # Need 2 PF
-            self.problem += plp.lpSum(lp_variables[player]
-                                      for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) == 2
-            # Need 1 center
-            self.problem += plp.lpSum(lp_variables[player]
-                                      for player in self.player_dict if 'C' in self.player_dict[player]['Position']) == 1
-
             # PG MPE
             self.problem += plp.lpSum(lp_variables[player]
                                       for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 2
@@ -237,6 +221,26 @@ class NBA_Optimizer:
             self.problem += plp.lpSum(lp_variables[player]
                                       for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 3
 
+            # PG Alignment
+            self.problem += plp.lpSum(lp_variables[player]
+                                      for player in self.player_dict if ['PG'] == self.player_dict[player]['Position']) <= 2
+
+            # SG Alignment
+            self.problem += plp.lpSum(lp_variables[player]
+                                      for player in self.player_dict if ['SG'] == self.player_dict[player]['Position']) <= 2
+
+            # SF Alignment
+            self.problem += plp.lpSum(lp_variables[player]
+                                      for player in self.player_dict if ['SF'] == self.player_dict[player]['Position']) <= 2
+
+            # PF Alignment
+            self.problem += plp.lpSum(lp_variables[player]
+                                      for player in self.player_dict if ['PF'] == self.player_dict[player]['Position']) <= 2
+
+            # C Alignment
+            self.problem += plp.lpSum(lp_variables[player]
+                                      for player in self.player_dict if ['C'] == self.player_dict[player]['Position']) <= 1
+
             # Can only roster 9 total players
             self.problem += plp.lpSum(lp_variables[player]
                                       for player in self.player_dict) == 9
@@ -244,33 +248,6 @@ class NBA_Optimizer:
             for team in self.team_list:
                 self.problem += plp.lpSum(lp_variables[player]
                                           for player in self.player_dict if self.player_dict[player]['Team'] == team) <= 4
-
-        # # Address limit rules if any
-        # for number, groups in self.at_least.items():
-        #     for group in groups:
-        #         self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
-        #                                   for player in group) >= int(number)
-
-        # for number, groups in self.at_most.items():
-        #     for group in groups:
-        #         self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
-        #                                   for player in group) <= int(number)
-
-        # # At least one sub-10 percenter
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ownership'] < 10.0) >= 2
-
-        # # Max ownership sum
-        # self.problem += lpSum(self.player_dict[player]['Ownership'] * lp_variables[player] for player in self.player_dict) <= self.max_own_sum
-
-        # # Ceiling guys
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Ceiling'] >= 50.0) >= 1
-
-        # # Limit teams
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BKN') <= 2
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'POR' or
-        #                                                                              self.player_dict[player]['Team'] == 'OKC') >= 3
-        # self.problem += lpSum(lp_variables[player] for player in self.player_dict if self.player_dict[player]['Team'] == 'BOS' or
-        #                                                                              self.player_dict[player]['Team'] == 'DEN') <= 3
 
         # Crunch!
         for i in range(self.num_lineups):
@@ -300,18 +277,6 @@ class NBA_Optimizer:
                 # Enforce this by lowering the objective i.e. producing sub-optimal results
                 self.problem += plp.lpSum(self.player_dict[player]['Fpts'] * lp_variables[player]
                                           for player in self.player_dict) <= (fpts - 0.01)
-
-            # Set number of unique players between lineups
-            # data = sorted(self.player_dict.items())
-            # for player_id, group_iterator in groupby(data):
-            #     group = list(group_iterator)
-            #     print(group)
-            #     if len(group) == 1:
-            #         continue
-            #     variables = [variable for player, variable in group]
-            #     solver.add_constraint(variables, None, SolverSign.LTE, 1)
-            #     print(variables)
-            # self.problem += len([ _id for _id in [self.player_dict[player]['ID'] * lp_variables[player] for player in self.player_dict] if _id not in set(player_names)]) >= self.num_uniques
 
     def output(self):
         print('Lineups done generating. Outputting.')
@@ -353,17 +318,17 @@ class NBA_Optimizer:
                     fpts_p = sum(
                         self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod(
-                        [self.player_dict[player]['Ownership']/100.0 for player in x])
+                        [self.player_dict[player]['Ownership'] for player in x])
                     ceil = sum(self.player_dict[player]
                                ['Ceiling'] for player in x)
                     mins = sum(self.player_dict[player]
                                ['Minutes'] for player in x)
                     boom_p = np.prod(
-                        [self.player_dict[player]['Boom']/100.0 for player in x])
+                        [self.player_dict[player]['Boom'] for player in x])
                     bust_p = np.prod(
-                        [self.player_dict[player]['Bust']/100.0 for player in x])
+                        [self.player_dict[player]['Bust'] for player in x])
                     optimal_p = np.prod(
-                        [self.player_dict[player]['Optimal']/100.0 for player in x])
+                        [self.player_dict[player]['Optimal'] for player in x])
                     # print(sum(self.player_dict[player]['Ownership'] for player in x))
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{}'.format(
                         x[0].replace('#', '-'), self.player_dict[x[0]]['ID'],
@@ -462,6 +427,7 @@ class NBA_Optimizer:
                 finalized = [None] * 9
                 z = 0
                 cond = False
+                infeasible = False
                 while None in finalized:
                     if cond:
                         break
@@ -483,20 +449,20 @@ class NBA_Optimizer:
                             else:
                                 z += 1
                                 if z == 1000:
-                                    print('infeasible')
-                                    print(finalized)
-                                    print(lineup)
-                                    for player in lineup:
-                                        if player is not None:
-                                            print(
-                                                player, self.player_dict[player]['Fpts'], self.player_dict[player]['Position'])
-                                        else:
-                                            print(player)
+                                    #print('infeasible lineup')
+                                    # print(lineup)
+                                    # for player in lineup:
+                                    #     if player is not None:
+                                    #         print(
+                                    #             player, self.player_dict[player]['Fpts'], self.player_dict[player]['Position'])
+                                    #     else:
+                                    #         print(player)
                                     cond = True
+                                    infeasible = True
                                     break
 
                                 shuffle(indices)
                                 finalized = [None] * 9
                                 break
-                if not cond:
+                if not cond and not infeasible:
                     self.lineups[fpts] = finalized

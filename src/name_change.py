@@ -16,6 +16,7 @@ try:
                   .replace('Jakarr Sampson', 'JaKarr Sampson')
                   .replace('KJ Martin', 'Kenyon Martin')
                   .replace('Cameron Thomas', 'Cam Thomas')
+                  .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Projections failed to rename')
@@ -36,6 +37,7 @@ try:
                   .replace('Jakarr Sampson', 'JaKarr Sampson')
                   .replace('KJ Martin', 'Kenyon Martin')
                   .replace('Cameron Thomas', 'Cam Thomas')
+                  .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Ownership failed to rename')
@@ -56,6 +58,7 @@ try:
                   .replace('Jakarr Sampson', 'JaKarr Sampson')
                   .replace('KJ Martin', 'Kenyon Martin')
                   .replace('Cameron Thomas', 'Cam Thomas')
+                  .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Boom/Bust failed to rename')

@@ -1,13 +1,11 @@
 {
-    "projection_path": "projections.csv",
-    "ownership_path": "ownership.csv",
-    "player_path": "player_ids.csv",
-    "boom_bust_path": "boom_bust.csv",
-    "late_swap_path": "live_lineups.csv",
-    "contest_structure_path": "contest_structure.csv",
-	"at_most": {
-    },
-    "at_least": {
-    },
-    "max_own_sum": 180
+  "projection_path": "projections.csv",
+  "ownership_path": "ownership.csv",
+  "player_path": "player_ids.csv",
+  "boom_bust_path": "boom_bust.csv",
+  "late_swap_path": "live_lineups.csv",
+  "contest_structure_path": "contest_structure.csv",
+  "at_most": {},
+  "at_least": {},
+  "max_own_sum": 180
 }
