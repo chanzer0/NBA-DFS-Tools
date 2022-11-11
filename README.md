@@ -92,7 +92,8 @@ In the base directory, you will find `config.json`, which has a few template opt
 },
 "team_limits": {
     "MIL": "3", // Will use at most 3 players from Milwaukee
-}
+},
+"global_team_limit": "5" // This will limit all teams to a maximum of 5 players
 ```
 
 ## Output

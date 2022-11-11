@@ -24,6 +24,7 @@ class NBA_Optimizer:
     at_least = {}
     at_most = {}
     team_limits = {}
+    global_team_limit = None
 
     def __init__(self, site=None, num_lineups=0, use_randomness=False, num_uniques=1):
         self.site = site
@@ -49,8 +50,7 @@ class NBA_Optimizer:
             __file__), '../{}_data/{}'.format(site, self.config['boom_bust_path']))
         self.load_boom_bust(boom_bust_path)
 
-        self.load_rules(
-            self.config["at_most"], self.config["at_least"], self.config["team_limits"])
+        self.load_rules()
 
     # Load config from file
     def load_config(self):
@@ -70,10 +70,11 @@ class NBA_Optimizer:
                     else:
                         self.player_dict[player_name]['ID'] = row['Id']
 
-    def load_rules(self, at_most, at_least, team_limits):
-        self.at_most = at_most
-        self.at_least = at_least
-        self.team_limits = team_limits
+    def load_rules(self):
+        self.at_most = self.config["at_most"]
+        self.at_least = self.config["at_least"]
+        self.team_limits = self.config["team_limits"]
+        self.global_team_limit = self.config["global_team_limit"]
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
@@ -174,6 +175,10 @@ class NBA_Optimizer:
         for team, limit in self.team_limits.items():
             self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
                                       for player in self.player_dict if self.player_dict[player]['Team'] == team) <= int(limit)
+        if self.global_team_limit is not None:
+            for team in self.team_list:
+                self.problem += plp.lpSum(lp_variables[player]
+                                          for player in self.player_dict if self.player_dict[player]['Team'] == team) <= int(self.global_team_limit)
 
         if self.site == 'dk':
             # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
