@@ -7,5 +7,6 @@
   "contest_structure_path": "contest_structure.csv",
   "at_most": {},
   "at_least": {},
-  "max_own_sum": 180
+  "team_limits": {},
+  "global_team_limit": "5"
 }
