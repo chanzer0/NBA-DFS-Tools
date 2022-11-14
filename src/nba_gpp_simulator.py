@@ -6,6 +6,8 @@ import random
 import heapq
 import numpy as np
 import pulp as plp
+import timeit
+
 
 
 class NBA_GPP_Simulator:
@@ -338,6 +340,35 @@ class NBA_GPP_Simulator:
                         self.field_lineups[i] = {
                             'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
                         i += 1
+            #generate field lineups  with uploaded opto to matach the correct contest size
+            """
+            while len(self.field_lineups) < self.field_size:
+                reject = True
+                while reject:
+                    salary = 0
+                    lineup = []
+                    for player in self.player_dict:
+                        self.player_dict[player]['In Lineup'] = False
+                    for pos in self.roster_construction:
+                        x = self.select_random_player(pos)
+                        self.player_dict[x]['In Lineup'] = True
+                        lineup.append(x)
+                        salary += self.player_dict[x]['Salary']
+                    # Must have a reasonable salary
+                    reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 1500
+                    if (salary >= reasonable_salary and salary <= self.salary):
+                        # Must have a reasonable projection (within 10% of optimal)
+                        #changed this value to 25% to test speed
+                        reasonable_projection = self.optimal_score - \
+                            (0.60*self.optimal_score)
+                        if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
+                            reject = False
+                            i+=1
+                            if i % 1000 == 0:
+                                print(i)
+                self.field_lineups[i] = {
+                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+            """
             self.field_size = i
         else:
             for i in range(self.field_size):
@@ -353,11 +384,12 @@ class NBA_GPP_Simulator:
                         lineup.append(x)
                         salary += self.player_dict[x]['Salary']
                     # Must have a reasonable salary
-                    reasonable_salary = self.salary - 1000 if self.site == 'dk' else self.salary - 1500
+                    reasonable_salary = self.salary - 7500 if self.site == 'dk' else self.salary - 1500
                     if (salary >= reasonable_salary and salary <= self.salary):
                         # Must have a reasonable projection (within 10% of optimal)
+                        #changed this value to 25% to test speed
                         reasonable_projection = self.optimal_score - \
-                            (0.05*self.optimal_score)
+                            (0.60*self.optimal_score)
                         if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
                             reject = False
                             if i % 1000 == 0:
@@ -369,17 +401,35 @@ class NBA_GPP_Simulator:
 
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
+        temp_fpts_dict = {p: np.random.normal(s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
+        #temp_fpts_dict = {p: np.random.normal(s['Fpts'], s['StdDev'], size=10000) for p, s in self.player_dict.items()}
+        #print(temp_fpts_dict)
+        field_score = {}
+        for index, values in self.field_lineups.items():
+            #print([temp_fpts_dict[player]
+            #    for player in values['Lineup']])
+            fpts_sim = sum([temp_fpts_dict[player]
+                for player in values['Lineup']])
+            values['sim_results'] = fpts_sim
+            print(values)
+            #field_score[fpts_sim] = {
+            #    'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
+            #print(field_score)
+
         for i in range(self.num_iterations):
+         #   print(i)
             if i % 1000 == 0:
                 print(i)
-
-            temp_fpts_dict = {p: round((np.random.normal(
-                stats['Fpts'], stats['StdDev'])), 2) for p, stats in self.player_dict.items()}
+            #print(i)
+            #temp_fpts_dict = {p: round((np.random.normal(
+            #    s['Fpts'], s['StdDev'])), 2) for p, s in self.player_dict.items()}
             field_score = {}
 
             for index, values in self.field_lineups.items():
-                fpts_sim = sum(temp_fpts_dict[player]
-                               for player in values['Lineup'])
+                #fpts_sim = 0
+                #for player in values['Lineup']:
+                #    fpts_sim += temp_fpts_dict[player][i]
+                fpts_sim = values['sim_results'][i]
                 field_score[fpts_sim] = {
                     'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
 
