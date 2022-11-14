@@ -1,13 +1,12 @@
-import json
-import os
 import csv
-import math
-import random
 import heapq
+import json
+import math
+import os
+import random
+
 import numpy as np
 import pulp as plp
-import timeit
-
 
 
 class NBA_GPP_Simulator:
@@ -26,9 +25,10 @@ class NBA_GPP_Simulator:
     entry_fee = None
     use_lineup_input = None
 
-    def __init__(self, site, field_size, num_iterations, use_contest_data, use_lineup_input):
+    def __init__(self, site, field_size, num_iterations, use_contest_data, use_lineup_input, match_lineup_input_to_field_size):
         self.site = site
         self.use_lineup_input = use_lineup_input
+        self.match_lineup_input_to_field_size = match_lineup_input_to_field_size
         self.load_config()
         projection_path = os.path.join(os.path.dirname(
             __file__), '../{}_data/{}'.format(site, self.config['projection_path']))
@@ -319,8 +319,9 @@ class NBA_GPP_Simulator:
                                   row['C'].split(
                                       '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
                                   row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
+                        #storing if this lineup was made by an optimizer or with the generation process in this script
                         self.field_lineups[i] = {
-                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
                         i += 1
                 else:
                     reader = csv.reader(file)
@@ -338,37 +339,36 @@ class NBA_GPP_Simulator:
                                       '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
                                   row['C'].split(':')[1].replace('-', '#')]
                         self.field_lineups[i] = {
-                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
                         i += 1
-            #generate field lineups  with uploaded opto to matach the correct contest size
-            """
-            while len(self.field_lineups) < self.field_size:
-                reject = True
-                while reject:
-                    salary = 0
-                    lineup = []
-                    for player in self.player_dict:
-                        self.player_dict[player]['In Lineup'] = False
-                    for pos in self.roster_construction:
-                        x = self.select_random_player(pos)
-                        self.player_dict[x]['In Lineup'] = True
-                        lineup.append(x)
-                        salary += self.player_dict[x]['Salary']
-                    # Must have a reasonable salary
-                    reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 1500
-                    if (salary >= reasonable_salary and salary <= self.salary):
-                        # Must have a reasonable projection (within 10% of optimal)
-                        #changed this value to 25% to test speed
-                        reasonable_projection = self.optimal_score - \
-                            (0.60*self.optimal_score)
-                        if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
-                            reject = False
-                            i+=1
-                            if i % 1000 == 0:
-                                print(i)
-                self.field_lineups[i] = {
-                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
-            """
+            #generate field lineups  with uploaded opto to match the correct contest size
+            if self.match_lineup_input_to_field_size:
+                while len(self.field_lineups) < self.field_size:
+                    reject = True
+                    while reject:
+                        salary = 0
+                        lineup = []
+                        for player in self.player_dict:
+                            self.player_dict[player]['In Lineup'] = False
+                        for pos in self.roster_construction:
+                            x = self.select_random_player(pos)
+                            self.player_dict[x]['In Lineup'] = True
+                            lineup.append(x)
+                            salary += self.player_dict[x]['Salary']
+                        # Must have a reasonable salary
+                        reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
+                        if (salary >= reasonable_salary and salary <= self.salary):
+                            # Must have a reasonable projection (within 10% of optimal)
+                            #changed this value to 25% to test speed
+                            reasonable_projection = self.optimal_score - \
+                                (0.60*self.optimal_score)
+                            if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
+                                reject = False
+                                i+=1
+                                if i % 1000 == 0:
+                                    print(i)
+                    self.field_lineups[i] = {
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
             self.field_size = i
         else:
             for i in range(self.field_size):
@@ -384,7 +384,7 @@ class NBA_GPP_Simulator:
                         lineup.append(x)
                         salary += self.player_dict[x]['Salary']
                     # Must have a reasonable salary
-                    reasonable_salary = self.salary - 7500 if self.site == 'dk' else self.salary - 1500
+                    reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
                     if (salary >= reasonable_salary and salary <= self.salary):
                         # Must have a reasonable projection (within 10% of optimal)
                         #changed this value to 25% to test speed
@@ -402,33 +402,18 @@ class NBA_GPP_Simulator:
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
         temp_fpts_dict = {p: np.random.normal(s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
-        #temp_fpts_dict = {p: np.random.normal(s['Fpts'], s['StdDev'], size=10000) for p, s in self.player_dict.items()}
-        #print(temp_fpts_dict)
-        field_score = {}
+        #generate arrays for every sim result for each player in the lineup and sum
         for index, values in self.field_lineups.items():
-            #print([temp_fpts_dict[player]
-            #    for player in values['Lineup']])
             fpts_sim = sum([temp_fpts_dict[player]
                 for player in values['Lineup']])
             values['sim_results'] = fpts_sim
-            print(values)
-            #field_score[fpts_sim] = {
-            #    'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
-            #print(field_score)
 
         for i in range(self.num_iterations):
-         #   print(i)
             if i % 1000 == 0:
                 print(i)
-            #print(i)
-            #temp_fpts_dict = {p: round((np.random.normal(
-            #    s['Fpts'], s['StdDev'])), 2) for p, s in self.player_dict.items()}
             field_score = {}
 
             for index, values in self.field_lineups.items():
-                #fpts_sim = 0
-                #for player in values['Lineup']:
-                #    fpts_sim += temp_fpts_dict[player][i]
                 fpts_sim = values['sim_results'][i]
                 field_score[fpts_sim] = {
                     'Lineup': values['Lineup'], 'Fpts': fpts_sim, 'Index': index}
@@ -436,6 +421,7 @@ class NBA_GPP_Simulator:
             # If we're using contest data, we need to calculate ROI for the lineups - sort them descending and assign payouts
             if self.use_contest_data:
                 sorted_dict = dict(sorted(field_score.items(), reverse=True))
+                #print(sorted_dict)
                 for i, (k, values) in enumerate(sorted_dict.items()):
                     idx = values['Index']
                     # If this lineup "placed"
@@ -479,6 +465,7 @@ class NBA_GPP_Simulator:
                 [self.player_dict[player]['Ownership']/100.0 for player in x['Lineup']])
             win_p = round(x['Wins']/self.num_iterations * 100, 2)
             top10_p = round(x['Top10']/self.num_iterations * 100, 2)
+            lu_type = x['Type']
             if self.site == 'dk':
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee /
@@ -500,7 +487,7 @@ class NBA_GPP_Simulator:
                             '#', '-'), self.player_dict[x['Lineup'][6].replace('-', '#')]['ID'],
                         x['Lineup'][7].replace(
                             '#', '-'), self.player_dict[x['Lineup'][7].replace('-', '#')]['ID'],
-                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p
+                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, lu_type
                     )
                 else:
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}'.format(
@@ -520,7 +507,7 @@ class NBA_GPP_Simulator:
                             '#', '-'), self.player_dict[x['Lineup'][6]]['ID'],
                         x['Lineup'][7].replace(
                             '#', '-'), self.player_dict[x['Lineup'][7]]['ID'],
-                        fpts_p, ceil_p, salary, win_p, top10_p, own_p
+                        fpts_p, ceil_p, salary, win_p, top10_p, own_p, lu_type
                     )
             elif self.site == 'fd':
                 if self.use_contest_data:
@@ -545,7 +532,7 @@ class NBA_GPP_Simulator:
                             '-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
                         self.player_dict[x['Lineup'][8].replace(
                             '-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
-                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p
+                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, lu_type
                     )
                 else:
                     lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}'.format(
@@ -567,7 +554,7 @@ class NBA_GPP_Simulator:
                             '-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
                         self.player_dict[x['Lineup'][8].replace(
                             '-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
-                        fpts_p, ceil_p, salary, win_p, top10_p, own_p
+                        fpts_p, ceil_p, salary, win_p, top10_p, own_p, lu_type
                     )
             unique[index] = lineup_str
 
@@ -577,17 +564,17 @@ class NBA_GPP_Simulator:
             if self.site == 'dk':
                 if self.use_contest_data:
                     f.write(
-                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
+                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product,Type\n')
                 else:
                     f.write(
-                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product\n')
+                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product,Type\n')
             elif self.site == 'fd':
                 if self.use_contest_data:
                     f.write(
-                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product\n')
+                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product,Type\n')
                 else:
                     f.write(
-                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product\n')
+                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product,Type\n')
 
             for fpts, lineup_str in unique.items():
                 f.write('%s\n' % lineup_str)
