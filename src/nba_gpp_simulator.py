@@ -395,7 +395,7 @@ class NBA_GPP_Simulator:
                             if i % 1000 == 0:
                                 print(i)
                 self.field_lineups[i] = {
-                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0}
+                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
 
         print(str(self.field_size) + ' field lineups successfully generated')
 
@@ -470,7 +470,7 @@ class NBA_GPP_Simulator:
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee /
                                   self.num_iterations * 100, 2)
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}%,{}'.format(
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}%,{},{}'.format(
                         x['Lineup'][0].replace(
                             '#', '-'), self.player_dict[x['Lineup'][0].replace('-', '#')]['ID'],
                         x['Lineup'][1].replace(
@@ -490,7 +490,7 @@ class NBA_GPP_Simulator:
                         fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, lu_type
                     )
                 else:
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}'.format(
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{},{}'.format(
                         x['Lineup'][0].replace(
                             '#', '-'), self.player_dict[x['Lineup'][0]]['ID'],
                         x['Lineup'][1].replace(
@@ -513,7 +513,7 @@ class NBA_GPP_Simulator:
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee /
                                   self.num_iterations * 100, 2)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}%,{}'.format(
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}%,{},{}'.format(
                         self.player_dict[x['Lineup'][0].replace(
                             '-', '#')]['ID'], x['Lineup'][0].replace('#', '-'),
                         self.player_dict[x['Lineup'][1].replace(
@@ -535,7 +535,7 @@ class NBA_GPP_Simulator:
                         fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, lu_type
                     )
                 else:
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}'.format(
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{},{}'.format(
                         self.player_dict[x['Lineup'][0].replace(
                             '-', '#')]['ID'], x['Lineup'][0].replace('#', '-'),
                         self.player_dict[x['Lineup'][1].replace(
@@ -557,6 +557,7 @@ class NBA_GPP_Simulator:
                         fpts_p, ceil_p, salary, win_p, top10_p, own_p, lu_type
                     )
             unique[index] = lineup_str
+            print(lineup_str)
 
         out_path = os.path.join(os.path.dirname(
             __file__), '../output/{}_gpp_sim_lineups_{}_{}.csv'.format(self.site, self.field_size, self.num_iterations))

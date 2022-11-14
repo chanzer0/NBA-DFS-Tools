@@ -55,7 +55,7 @@ def main(arguments):
             num_iterations = arguments[5]
         else:
             num_iterations = arguments[4]
-        if arguments[6] == 'match':
+        if 'match' in arguments:
             match_lineup_input_to_field_size = True
         sim = NBA_GPP_Simulator(site, field_size, num_iterations, use_contest_data, use_file_upload, match_lineup_input_to_field_size)
         sim.generate_field_lineups()
