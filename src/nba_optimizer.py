@@ -25,6 +25,7 @@ class NBA_Optimizer:
     at_most = {}
     team_limits = {}
     global_team_limit = None
+    projection_minimum = 0
 
     def __init__(self, site=None, num_lineups=0, use_randomness=False, num_uniques=1):
         self.site = site
@@ -32,6 +33,8 @@ class NBA_Optimizer:
         self.num_uniques = int(num_uniques)
         self.use_randomness = use_randomness == 'rand'
         self.load_config()
+        self.load_rules()
+
         self.problem = plp.LpProblem('NBA', plp.LpMaximize)
 
         projection_path = os.path.join(os.path.dirname(
@@ -50,9 +53,8 @@ class NBA_Optimizer:
             __file__), '../{}_data/{}'.format(site, self.config['boom_bust_path']))
         self.load_boom_bust(boom_bust_path)
 
-        self.load_rules()
-
     # Load config from file
+
     def load_config(self):
         with open(os.path.join(os.path.dirname(__file__), '../config.json')) as json_file:
             self.config = json.load(json_file)
@@ -74,7 +76,8 @@ class NBA_Optimizer:
         self.at_most = self.config["at_most"]
         self.at_least = self.config["at_least"]
         self.team_limits = self.config["team_limits"]
-        self.global_team_limit = self.config["global_team_limit"]
+        self.global_team_limit = int(self.config["global_team_limit"])
+        self.projection_minimum = int(self.config["projection_minimum"])
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
@@ -106,7 +109,7 @@ class NBA_Optimizer:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
-                if float(row['Fpts']) < 0:
+                if float(row['Fpts']) < self.projection_minimum:
                     continue
                 self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '',
                                                  'StdDev': 0, 'Team': '', 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}

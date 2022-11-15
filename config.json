@@ -8,5 +8,7 @@
   "at_most": {},
   "at_least": {},
   "team_limits": {},
-  "global_team_limit": "5"
+  "global_team_limit": 5,
+  "projection_minimum": 15,
+  ""
 }
