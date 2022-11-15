@@ -6,6 +6,9 @@ This tool was created in conjunction with [@bjungwirth](https://github.com/bjung
 
 ## Installation
 
+If you're lazy and don't like reading, you can check this video which covers _most_ everything listed below. Note that the video may become out of date, so treat the README as gospel.
+[![NBA-DFS-Tools Installation and Usage Guide](https://i.imgur.com/taXdZVQ.png)](https://www.youtube.com/watch?v=5r3_n9qrZ0Y "NBA-DFS-Tools Installation and Usage Guide")
+
 ### System requirements
 
 - To run the tools, you will need to [install python](https://www.python.org/downloads/) if you don't already have it. These tools were bult on Python 3.8.2, and may be incompatible with outdated versions of Python.
