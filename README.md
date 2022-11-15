@@ -2,6 +2,8 @@
 
 Packaged in this repository is an NBA optimzier for DraftKings and FanDuel, along with other tools you might find useful in helping you win your Cash games, Head-to-heads and Tournaments. You'll find installation and usage instructions below. Data input is in the format of [Awesemo](https://www.awesemo.com/join/#/) CSV export. Awesemo has great player projection and ownership predictions that can't be matched. Sign up and join in premium slack where DFS pros, including Alex "Awesemo" Baker himself, can answer your quetsions and help you win.
 
+This tool was created in conjunction with [@bjungwirth](https://github.com/bjungwirth) who is knowledgeable in both NBA DFS game theory as well advanced python data science and data strucures. You can check him out on [Twitter](https://twitter.com/blainejungwirth?lang=en) or read [his blog.](http://http://jungwirb.io/)
+
 ## Installation
 
 ### System requirements
@@ -43,8 +45,8 @@ Where:
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
 
-  - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, and `<num_iterations>` is the number of times you wish to simulate the tournament.
-  - Usage #2 allows you to specify an actual DraftKings contest, which will dictate `<field_size>`. You will specify the number of iterations, but specifying the contest allows the simulation to take ROI into account, since the payout structure and entry fee is known. The usage for this is: `python .\main.py <site> sim cid <num_iterations>`. To execute this usage, you will need a `contest_structure.csv` file in the structure of the image shown below. You can obtain this fairly quickly by opening up the contest details overlay and copy/pasting the prize payouts section into Excel or Google sheets, then using `Ctrl+H` to get rid of 'st', 'nd', 'rd', 'th', etc...
+  - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations> <match>`, where `<field_size>` is the known entrant size, `<num_iterations>` is the number of times you wish to simulate the tournament, and `<match>` is a boolean flag (true/false) to tell the simulator to match the difference in your `tournament_lineups.csv` (say it has 8.5k for example) with your desired field size (say 10k for example -- this will generate an extra 1500 lineups to match). If time is of the essence, it's better to not `match`.
+  - Usage #2 allows you to specify an actual DraftKings contest, which will dictate `<field_size>`. You will specify the number of iterations, but specifying the contest allows the simulation to take ROI into account, since the payout structure and entry fee is known. The usage for this is: `python .\main.py <site> sim cid <num_iterations> <match>`. To execute this usage, you will need a `contest_structure.csv` file in the structure of the image shown below. You can obtain this fairly quickly by opening up the contest details overlay and copy/pasting the prize payouts section into Excel or Google sheets, then using `Ctrl+H` to get rid of 'st', 'nd', 'rd', 'th', etc...
 
         ![Contest structure input](readme_images/contest_structure_input.png)
 
