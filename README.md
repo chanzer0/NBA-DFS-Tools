@@ -32,7 +32,7 @@ To use the tools, you will need to open a windows console or powershell terminal
 ![Shell image](readme_images/shell.png)
 
 To run the tools, the generic usage template is as follows:
-`python .\main.py <site> <process> <num_lineups> <num_uniques> <use_rand>`
+`python .\main.py <site> <process> <num_lineups> <num_uniques>`
 
 Where:
 `<site>` is:
@@ -58,13 +58,8 @@ Where:
 
 `<num_uniques>` defines the number of players that must differ from one lineup to the next. **NOTE** - this is enforced _after_ crunching, so 1000 lineups may be whittled down to 7-800 depending on this constraint. Enforcing this _after_ crunching aids in the speed of crunching. Expect approximately 5-15% of lineups to be "culled" by this constraint and plan accordingly. The more players available to crunch, the lower this percentage will be.
 
-`<use_randomess>` is:
-
-- `rand` if you want to incorporate [Standard Normal](https://www.mathsisfun.com/data/standard-normal-distribution.html) randomness
-- `none` (or any string that isn't 'rand') if you want to crunch strict optimals with no randomness added.
-
 For example, to generate 1000 lineups for DraftKings, with 3 uniques and randomness, I would execute the following:
-`python .\main.py dk opto 1000 3 rand`
+`python .\main.py dk opto 1000 3` with `"randomness": X` in `config.json` where `X` is a number between 0 and 100
 
 The image below shows what the shell/terminal should look like when executing this. You may safely ignore the PuLP overwriting warning, as we must overwrite the linear programming objective with the updated random projections.
 
@@ -103,8 +98,9 @@ The structure for the config is as follows:
 "team_limits": {
     "MIL": 3, // Will use at most 3 players from Milwaukee
 },
-"global_team_limit": 5 // This will limit all teams to a maximum of 5 players
-"projection_minimum": 15 // No player projected under 15 fpts will be used
+"global_team_limit": 5, // This will limit all teams to a maximum of 5 players
+"projection_minimum": 15, // No player projected under 15 fpts will be used
+"randomness": 25, // 25% standard deviation randomness
 ```
 
 ## Output

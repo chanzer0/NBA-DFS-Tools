@@ -32,5 +32,6 @@
     "WAS": 4
   },
   "global_team_limit": 5,
-  "projection_minimum": 15
+  "projection_minimum": 15,
+  "randomness": 25
 }

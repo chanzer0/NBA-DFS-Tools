@@ -17,7 +17,6 @@ class NBA_Optimizer:
     output_dir = None
     num_lineups = None
     num_uniques = None
-    use_randomness = None
     team_list = []
     lineups = {}
     player_dict = {}
@@ -26,12 +25,12 @@ class NBA_Optimizer:
     team_limits = {}
     global_team_limit = None
     projection_minimum = 0
+    randomness_amount = 0
 
-    def __init__(self, site=None, num_lineups=0, use_randomness=False, num_uniques=1):
+    def __init__(self, site=None, num_lineups=0, num_uniques=1):
         self.site = site
         self.num_lineups = int(num_lineups)
         self.num_uniques = int(num_uniques)
-        self.use_randomness = use_randomness == 'rand'
         self.load_config()
         self.load_rules()
 
@@ -78,6 +77,7 @@ class NBA_Optimizer:
         self.team_limits = self.config["team_limits"]
         self.global_team_limit = int(self.config["global_team_limit"])
         self.projection_minimum = int(self.config["projection_minimum"])
+        self.randomness_amount = float(self.config["randomness"])
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
@@ -148,14 +148,10 @@ class NBA_Optimizer:
         lp_variables = {player: plp.LpVariable(
             player, cat='Binary') for player, _ in self.player_dict.items()}
 
-        # set the objective - maximize fpts
-        if self.use_randomness:
-            self.problem += plp.lpSum(np.random.normal(self.player_dict[player]['Fpts'], (self.player_dict[player]
-                                      ['StdDev'])) * lp_variables[player] for player in self.player_dict), 'Objective'
-        else:
-            self.problem += plp.lpSum(self.player_dict[player]['Fpts'] * lp_variables[player]
-                                      for player in self.player_dict), 'Objective'
-
+        # set the objective - maximize fpts & set randomness amount from config
+        self.problem += plp.lpSum(np.random.normal(self.player_dict[player]['Fpts'],
+                                                   (self.player_dict[player]['StdDev'] * self.randomness_amount / 100))
+                                  * lp_variables[player] for player in self.player_dict), 'Objective'
         # Set the salary constraints
         max_salary = 50000 if self.site == 'dk' else 60000
         min_salary = 45000 if self.site == 'dk' else 55000
@@ -295,15 +291,14 @@ class NBA_Optimizer:
             fpts = eval(score)
             self.lineups[fpts] = player_names
 
-            # Dont generate the same lineup twice
-            if self.use_randomness:
-                # Set a new random fpts projection within their distribution
-                self.problem += plp.lpSum(np.random.normal(
-                    self.player_dict[player]['Fpts'], self.player_dict[player]['StdDev']) * lp_variables[player] for player in self.player_dict)
+            # Set a new random fpts projection within their distribution
+            if self.randomness_amount != 0:
+                self.problem += plp.lpSum(np.random.normal(self.player_dict[player]['Fpts'],
+                                                           (self.player_dict[player]['StdDev'] * self.randomness_amount / 100))
+                                          * lp_variables[player] for player in self.player_dict), 'Objective'
             else:
-                # Enforce this by lowering the objective i.e. producing sub-optimal results
                 self.problem += plp.lpSum(self.player_dict[player]['Fpts'] * lp_variables[player]
-                                          for player in self.player_dict) <= (fpts - 0.01)
+                                          for player in self.player_dict) <= (fpts - 0.001)
 
     def output(self):
         print('Lineups done generating. Outputting.')
@@ -480,7 +475,7 @@ class NBA_Optimizer:
                             else:
                                 z += 1
                                 if z == 1000:
-                                    #print('infeasible lineup')
+                                    # print('infeasible lineup')
                                     # print(lineup)
                                     # for player in lineup:
                                     #     if player is not None:

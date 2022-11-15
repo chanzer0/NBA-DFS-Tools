@@ -8,6 +8,7 @@ from windows_inhibitor import *
 from nba_late_swaptimizer import *
 # from tennis_optimizer import *
 
+
 def main(arguments):
     if len(arguments) < 3 or len(arguments) > 7:
         print('Incorrect usage. Please see `README.md` for proper usage.')
@@ -25,16 +26,14 @@ def main(arguments):
     if process == 'opto':
         num_lineups = arguments[3]
         num_uniques = arguments[4]
-        use_randomness = arguments[5]
-        opto = NBA_Optimizer(site, num_lineups, use_randomness, num_uniques)
+        opto = NBA_Optimizer(site, num_lineups, num_uniques)
         opto.optimize()
         opto.output()
 
     elif process == 'sd':
         num_lineups = arguments[3]
         num_uniques = arguments[4]
-        use_randomness = arguments[5]
-        opto = NBA_Showdown_Optimizer(site, num_lineups, use_randomness, num_uniques)
+        opto = NBA_Showdown_Optimizer(site, num_lineups, num_uniques)
         opto.optimize()
         opto.output()
 
@@ -57,7 +56,8 @@ def main(arguments):
             num_iterations = arguments[4]
         if 'match' in arguments:
             match_lineup_input_to_field_size = True
-        sim = NBA_GPP_Simulator(site, field_size, num_iterations, use_contest_data, use_file_upload, match_lineup_input_to_field_size)
+        sim = NBA_GPP_Simulator(site, field_size, num_iterations, use_contest_data,
+                                use_file_upload, match_lineup_input_to_field_size)
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
         sim.output()
