@@ -70,9 +70,17 @@ The image below shows what the shell/terminal should look like when executing th
 
 ## Config
 
-In the base directory, you will find `config.json`, which has a few template options for you to limit players from teams, and make groups of players you want a limit on. The structure for them is as follows:
+In the base directory, you will find `sample.config.json`, which has a few template options for you to limit players from teams, and make groups of players you want a limit on. This is just meant to show you how you structure rules in this optimizer. When you're ready, copy this file and rename it to `config.json``
+
+The structure for the config is as follows:
 
 ```
+"projection_path": "projections.csv", // This is where projections are loaded from
+"ownership_path": "ownership.csv", // This is where ownership is loaded from
+"player_path": "player_ids.csv", // This is where player ids are loaded from
+"boom_bust_path": "boom_bust.csv", // This is where boom/bust data is loaded from
+"late_swap_path": "live_lineups.csv", // This is where late swap lineups are loaded from
+"contest_structure_path": "contest_structure.csv", // This is where GPP sim tournament strucure is loaded from
 "at_least": {
     "2": [
         ["Stephen Curry", "Domantas Sabonis", "Joel Embiid"], // This will use at least 2 of these players
@@ -87,13 +95,14 @@ In the base directory, you will find `config.json`, which has a few template opt
         ["Evan Mobley", "Kevin Love"],
     ],
     "2": [
-        ["Jevon Carter", "Grayson Allen", "Wesley Matthews"], // Will use at most 2 of these players, good for players that may close or sit bench
+        ["Jevon Carter", "Grayson Allen", "Wesley Matthews"], // Will use at most 2 of these players, good for players that may fight for closing time
     ],
 },
 "team_limits": {
-    "MIL": "3", // Will use at most 3 players from Milwaukee
+    "MIL": 3, // Will use at most 3 players from Milwaukee
 },
-"global_team_limit": "5" // This will limit all teams to a maximum of 5 players
+"global_team_limit": 5 // This will limit all teams to a maximum of 5 players
+"projection_minimum": 15 // No player projected under 15 fpts will be used
 ```
 
 ## Output
