@@ -86,6 +86,7 @@ try:
     with fileinput.FileInput(ownership_path, inplace=True) as file:
         for line in file:
             print(line.replace('DeAndre Ayton', 'Deandre Ayton'), end='')
+            print(line.replace('Marcus Morris', 'Marcus Morris Sr.'), end='')
 except:
     print('DK Ownership failed to rename')
     pass

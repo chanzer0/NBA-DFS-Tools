@@ -114,26 +114,13 @@ class NBA_GPP_Simulator:
             # Need at least 3 forwards (SF,PF,F)
             problem += plp.lpSum(lp_variables[player] for player in self.player_dict if 'SF' in self.player_dict[player]
                                  ['Position'] or 'PF' in self.player_dict[player]['Position']) >= 3
+            # Max 4 of PG and C single-eligbility players to prevent rare edge case where you can end up with 3 PG and 2 C, even though this build is infeasible
+            problem += plp.lpSum(lp_variables[player] for player in self.player_dict if [
+                'PG'] == self.player_dict[player]['Position'] or ['C'] == self.player_dict[player]['Position']) <= 4
             # Can only roster 8 total players
             problem += plp.lpSum(lp_variables[player]
                                  for player in self.player_dict) == 8
         else:
-            # Need 2 PG
-            problem += plp.lpSum(lp_variables[player]
-                                 for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) == 2
-            # Need 2 SG
-            problem += plp.lpSum(lp_variables[player]
-                                 for player in self.player_dict if 'SG' in self.player_dict[player]['Position']) == 2
-            # Need 2 SF
-            problem += plp.lpSum(lp_variables[player]
-                                 for player in self.player_dict if 'SF' in self.player_dict[player]['Position']) == 2
-            # Need 2 PF
-            problem += plp.lpSum(lp_variables[player]
-                                 for player in self.player_dict if 'PF' in self.player_dict[player]['Position']) == 2
-            # Need 1 center
-            problem += plp.lpSum(lp_variables[player]
-                                 for player in self.player_dict if 'C' in self.player_dict[player]['Position']) == 1
-
             # PG MPE
             problem += plp.lpSum(lp_variables[player]
                                  for player in self.player_dict if 'PG' in self.player_dict[player]['Position']) >= 2
@@ -159,6 +146,26 @@ class NBA_GPP_Simulator:
                                  for player in self.player_dict if 'C' in self.player_dict[player]['Position']) >= 1
             problem += plp.lpSum(lp_variables[player]
                                  for player in self.player_dict if 'C' in self.player_dict[player]['Position']) <= 3
+
+            # PG Alignment
+            problem += plp.lpSum(lp_variables[player]
+                                 for player in self.player_dict if ['PG'] == self.player_dict[player]['Position']) <= 2
+
+            # SG Alignment
+            problem += plp.lpSum(lp_variables[player]
+                                 for player in self.player_dict if ['SG'] == self.player_dict[player]['Position']) <= 2
+
+            # SF Alignment
+            problem += plp.lpSum(lp_variables[player]
+                                 for player in self.player_dict if ['SF'] == self.player_dict[player]['Position']) <= 2
+
+            # PF Alignment
+            problem += plp.lpSum(lp_variables[player]
+                                 for player in self.player_dict if ['PF'] == self.player_dict[player]['Position']) <= 2
+
+            # C Alignment
+            problem += plp.lpSum(lp_variables[player]
+                                 for player in self.player_dict if ['C'] == self.player_dict[player]['Position']) <= 1
 
             # Can only roster 9 total players
             problem += plp.lpSum(lp_variables[player]
@@ -191,7 +198,7 @@ class NBA_GPP_Simulator:
                 if player_name in self.player_dict:
                     if self.site == 'dk':
                         self.player_dict[player_name]['ID'] = int(row['ID'])
-                    else: 
+                    else:
                         self.player_dict[player_name]['ID'] = row['Id']
 
     def load_contest_data(self, path):
@@ -206,10 +213,10 @@ class NBA_GPP_Simulator:
                 # multi-position payouts
                 if '-' in row['Place']:
                     indices = row['Place'].split('-')
-                    #print(indices)
-                    #have to add 1 to range to get it to generate value for everything
+                    # print(indices)
+                    # have to add 1 to range to get it to generate value for everything
                     for i in range(int(indices[0]), int(indices[1])+1):
-                        #print(i)
+                        # print(i)
                         # Where I'm from, we 0 index things. Thus, -1 since Payout starts at 1st place
                         self.payout_structure[i - 1] = float(
                             row['Payout'].split('.')[0].replace(',', ''))
@@ -217,7 +224,7 @@ class NBA_GPP_Simulator:
                 else:
                     self.payout_structure[int(
                         row['Place']) - 1] = float(row['Payout'].split('.')[0].replace(',', ''))
-        #print(self.payout_structure)
+        # print(self.payout_structure)
 
     # Load config from file
     def load_config(self):
@@ -323,7 +330,7 @@ class NBA_GPP_Simulator:
                                   row['C'].split(
                                       '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
                                   row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
-                        #storing if this lineup was made by an optimizer or with the generation process in this script
+                        # storing if this lineup was made by an optimizer or with the generation process in this script
                         self.field_lineups[i] = {
                             'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
                         i += 1
@@ -345,7 +352,7 @@ class NBA_GPP_Simulator:
                         self.field_lineups[i] = {
                             'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
                         i += 1
-            #generate field lineups  with uploaded opto to match the correct contest size
+            # generate field lineups  with uploaded opto to match the correct contest size
             if self.match_lineup_input_to_field_size:
                 while len(self.field_lineups) < (self.field_size):
                     reject = True
@@ -363,13 +370,14 @@ class NBA_GPP_Simulator:
                         reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
                         if (salary >= reasonable_salary and salary <= self.salary):
                             # Must have a reasonable projection (within 10% of optimal)
-                            #changed this value to 25% to test speed
+                            # changed this value to 25% to test speed
                             reasonable_projection = self.optimal_score - \
                                 (0.60*self.optimal_score)
                             if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
                                 reject = False
-                                self.field_lineups[i] = {'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
-                                i+=1
+                                self.field_lineups[i] = {
+                                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
+                                i += 1
                                 if i % 1000 == 0:
                                     print(i)
                 print(len(self.field_lineups))
@@ -391,7 +399,7 @@ class NBA_GPP_Simulator:
                     reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
                     if (salary >= reasonable_salary and salary <= self.salary):
                         # Must have a reasonable projection (within 10% of optimal)
-                        #changed this value to 25% to test speed
+                        # changed this value to 25% to test speed
                         reasonable_projection = self.optimal_score - \
                             (0.60*self.optimal_score)
                         if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
@@ -405,26 +413,28 @@ class NBA_GPP_Simulator:
 
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
-        temp_fpts_dict = {p: np.random.normal(s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
-        #generate arrays for every sim result for each player in the lineup and sum
+        temp_fpts_dict = {p: np.random.normal(
+            s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
+        # generate arrays for every sim result for each player in the lineup and sum
         fpts_array = np.zeros(shape=(self.field_size, self.num_iterations))
-        #converting payout structure into an np friendly format, could probably just do this in the load contest function
+        # converting payout structure into an np friendly format, could probably just do this in the load contest function
         payout_array = np.array(list(self.payout_structure.values()))
-        l_array = np.full(shape=self.field_size-len(payout_array), fill_value = -self.entry_fee)
+        l_array = np.full(shape=self.field_size -
+                          len(payout_array), fill_value=-self.entry_fee)
         payout_array = np.concatenate((payout_array, l_array))
         for index, values in self.field_lineups.items():
             fpts_sim = sum([temp_fpts_dict[player]
-                for player in values['Lineup']])
-            #dont need to store values in dict anymore
+                            for player in values['Lineup']])
+            # dont need to store values in dict anymore
             #values['sim_results'] = fpts_sim
-            #store lineup fpts sum in 2d np array where index (row) corresponds to index of field_lineups and columns are the fpts from each sim
+            # store lineup fpts sum in 2d np array where index (row) corresponds to index of field_lineups and columns are the fpts from each sim
             fpts_array[index] = fpts_sim
         ranks = np.argsort(fpts_array, axis=0)
-        #count wins, top 10s vectorized
-        wins = np.count_nonzero(ranks ==0, axis=1)
-        t10 = np.count_nonzero(ranks <10, axis=1)
+        # count wins, top 10s vectorized
+        wins = np.count_nonzero(ranks == 0, axis=1)
+        t10 = np.count_nonzero(ranks < 10, axis=1)
         roi = np.sum(payout_array[ranks], axis=1)
-        #summing up each lineup, probably a way to vectorize this too (maybe just turning the field dict into an array too)
+        # summing up each lineup, probably a way to vectorize this too (maybe just turning the field dict into an array too)
         for idx in range(fpts_array.shape[0]):
             # Winning
             self.field_lineups[idx]['Wins'] += wins[idx]
