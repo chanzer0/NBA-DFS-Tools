@@ -120,9 +120,14 @@ class NBA_Optimizer:
                     row['Minutes'])
                 self.player_dict[player_name]['Name'] = row['Name']
                 self.player_dict[player_name]['Team'] = row['Team']
-
+                self.player_dict[player_name]['FPPM'] = float(
+                    row['Fpts']) / float(row['Minutes'])
+                self.player_dict[player_name]['PPD'] = float(
+                    row['Fpts']) / int(row['Salary'].replace(',', ''))*1000
                 if row['Team'] not in self.team_list:
                     self.team_list.append(row['Team'])
+
+                # print(self.player_dict[player_name])
 
                 # Need to handle MPE
                 self.player_dict[player_name]['Position'] = [
@@ -333,7 +338,7 @@ class NBA_Optimizer:
         with open(out_path, 'w') as f:
             if self.site == 'dk':
                 f.write(
-                    'PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Ceiling,Own. Product,Optimal%,Minutes,Boom%,Bust%,Leverage\n')
+                    'PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Ceiling,Own. Product,Optimal%,Minutes,Boom%,Bust%,Leverage,FPPM,PPD,STDDEV\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
@@ -341,10 +346,10 @@ class NBA_Optimizer:
                         self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod(
                         [self.player_dict[player]['Ownership'] for player in x])
-                    ceil = sum(self.player_dict[player]
-                               ['Ceiling'] for player in x)
-                    mins = sum(self.player_dict[player]
-                               ['Minutes'] for player in x)
+                    ceil = sum([self.player_dict[player]
+                               ['Ceiling'] for player in x])
+                    mins = sum([self.player_dict[player]
+                               ['Minutes'] for player in x])
                     boom_p = np.prod(
                         [self.player_dict[player]['Boom'] for player in x])
                     bust_p = np.prod(
@@ -353,8 +358,14 @@ class NBA_Optimizer:
                         [self.player_dict[player]['Optimal'] for player in x])
                     leverage = sum(self.player_dict[player]
                                    ['Leverage'] for player in x)
+                    fppm = np.prod(
+                        [self.player_dict[player]['FPPM'] for player in x])
+                    ppd = np.prod(
+                        [self.player_dict[player]['PPD'] for player in x])
+                    stddev = np.prod(
+                        [self.player_dict[player]['StdDev'] for player in x])
                     # print(sum(self.player_dict[player]['Ownership'] for player in x))
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{},{}'.format(
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{},{},{},{},{}'.format(
                         x[0].replace('#', '-'), self.player_dict[x[0]]['ID'],
                         x[1].replace('#', '-'), self.player_dict[x[1]]['ID'],
                         x[2].replace('#', '-'), self.player_dict[x[2]]['ID'],
@@ -363,13 +374,13 @@ class NBA_Optimizer:
                         x[5].replace('#', '-'), self.player_dict[x[5]]['ID'],
                         x[6].replace('#', '-'), self.player_dict[x[6]]['ID'],
                         x[7].replace('#', '-'), self.player_dict[x[7]]['ID'],
-                        salary, round(fpts_p, 2), round(
-                            ceil, 2), own_p, optimal_p, mins, boom_p, bust_p, leverage
+                        salary, round(
+                            fpts_p, 2), ceil, own_p, optimal_p, mins, boom_p, bust_p, leverage, fppm, ppd, stddev
                     )
                     f.write('%s\n' % lineup_str)
             else:
                 f.write(
-                    'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Ceiling,Own. Product,Optimal%,Minutes,Boom%,Bust%,Leverage\n')
+                    'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Ceiling,Own. Product,Optimal%,Minutes,Boom%,Bust%,Leverage,FPPM,PPD,STDDEV\n')
                 for fpts, x in self.lineups.items():
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
@@ -377,19 +388,25 @@ class NBA_Optimizer:
                         self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod(
                         [self.player_dict[player]['Ownership'] for player in x])
-                    ceil = sum(self.player_dict[player]
-                               ['Ceiling'] for player in x)
-                    mins = sum(self.player_dict[player]
-                               ['Minutes'] for player in x)
+                    ceil = np.prod([self.player_dict[player]
+                                   ['Ceiling'] for player in x])
+                    mins = np.prod([self.player_dict[player]
+                                   ['Minutes'] for player in x])
                     boom = np.prod(
                         [self.player_dict[player]['Boom'] for player in x])
                     bust = np.prod(
                         [self.player_dict[player]['Bust'] for player in x])
                     optimal = np.prod(
                         [self.player_dict[player]['Optimal'] for player in x])
+                    fppm = np.prod(
+                        [self.player_dict[player]['FPPM'] for player in x])
+                    ppd = np.prod(
+                        [self.player_dict[player]['PPD'] for player in x])
+                    stddev = np.prod(
+                        [self.player_dict[player]['StdDev'] for player in x])
                     leverage = sum(self.player_dict[player]
                                    ['Leverage'] for player in x)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{},{},{}'.format(
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
                         self.player_dict[x[0]]['ID'], x[0].replace('#', '-'),
                         self.player_dict[x[1]]['ID'], x[1].replace('#', '-'),
                         self.player_dict[x[2]]['ID'], x[2].replace('#', '-'),
@@ -399,8 +416,8 @@ class NBA_Optimizer:
                         self.player_dict[x[6]]['ID'], x[6].replace('#', '-'),
                         self.player_dict[x[7]]['ID'], x[7].replace('#', '-'),
                         self.player_dict[x[8]]['ID'], x[8].replace('#', '-'),
-                        salary, round(fpts_p, 2), round(
-                            ceil, 2), own_p, optimal, mins, boom, bust, leverage
+                        salary, round(
+                            fpts_p, 2), ceil, own_p, optimal, mins, boom, bust, leverage, fppm, ppd, stddev
                     )
                     f.write('%s\n' % lineup_str)
         print('Output done.')
