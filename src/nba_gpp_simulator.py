@@ -190,7 +190,7 @@ class NBA_GPP_Simulator:
 
     # Load player IDs for exporting
     def load_player_ids(self, path):
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 name_key = 'Name' if self.site == 'dk' else 'Nickname'
@@ -202,7 +202,7 @@ class NBA_GPP_Simulator:
                         self.player_dict[player_name]['ID'] = row['Id']
 
     def load_contest_data(self, path):
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 if self.field_size is None:
@@ -228,13 +228,13 @@ class NBA_GPP_Simulator:
 
     # Load config from file
     def load_config(self):
-        with open(os.path.join(os.path.dirname(__file__), '../config.json')) as json_file:
+        with open(os.path.join(os.path.dirname(__file__), '../config.json'), encoding='utf-8-sig') as json_file:
             self.config = json.load(json_file)
 
     # Load projections from file
     def load_projections(self, path):
         # Read projections into a dictionary
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')

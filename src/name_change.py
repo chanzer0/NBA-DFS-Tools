@@ -75,7 +75,8 @@ try:
         __file__), '../dk_data/projections.csv')
     with fileinput.FileInput(projection_path, inplace=True) as file:
         for line in file:
-            print(line.replace('DeAndre Ayton', 'Deandre Ayton'), end='')
+            print(line.replace('DeAndre Ayton', 'Deandre Ayton').replace(
+                'Aaron NeSmith', 'Aaron Nesmith'), end='')
 except:
     print('DK Projections failed to rename')
     pass
@@ -86,7 +87,7 @@ try:
     with fileinput.FileInput(ownership_path, inplace=True) as file:
         for line in file:
             print(line.replace('DeAndre Ayton', 'Deandre Ayton')
-                      .replace('Marcus Morris', 'Marcus Morris Sr.'), end='')
+                      .replace('Aaron NeSmith', 'Aaron Nesmith'), end='')
 except:
     print('DK Ownership failed to rename')
     pass
@@ -96,7 +97,8 @@ try:
         __file__), '../dk_data/boom_bust.csv')
     with fileinput.FileInput(ownership_path, inplace=True) as file:
         for line in file:
-            print(line.replace('DeAndre Ayton', 'Deandre Ayton'), end='')
+            print(line.replace('DeAndre Ayton', 'Deandre Ayton').replace(
+                'Aaron NeSmith', 'Aaron Nesmith'), end='')
 except:
     print('DK Boom/Bust failed to rename')
     pass

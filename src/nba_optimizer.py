@@ -23,6 +23,8 @@ class NBA_Optimizer:
     at_least = {}
     at_most = {}
     team_limits = {}
+    matchup_limits = {}
+    matchup_at_least = {}
     global_team_limit = None
     projection_minimum = 0
     randomness_amount = 0
@@ -55,21 +57,29 @@ class NBA_Optimizer:
     # Load config from file
 
     def load_config(self):
-        with open(os.path.join(os.path.dirname(__file__), '../config.json')) as json_file:
+        with open(os.path.join(os.path.dirname(__file__), '../config.json'), encoding='utf-8-sig') as json_file:
             self.config = json.load(json_file)
 
     # Load player IDs for exporting
     def load_player_ids(self, path):
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 name_key = 'Name' if self.site == 'dk' else 'Nickname'
                 player_name = row[name_key].replace('-', '#')
                 if player_name in self.player_dict:
+                    self.player_dict[player_name]['Matchup'] = row['Game Info'].split(' ')[
+                        0]
                     if self.site == 'dk':
-                        self.player_dict[player_name]['ID'] = int(row['ID'])
+                        self.player_dict[player_name]['RealID'] = int(
+                            row['ID'])
+                        self.player_dict[player_name]['ID'] = int(
+                            row['ID'][-3:])
                     else:
-                        self.player_dict[player_name]['ID'] = row['Id']
+                        self.player_dict[player_name]['RealID'] = int(
+                            row['ID'])
+                        self.player_dict[player_name]['ID'] = int(
+                            row['Id'].split('-')[1])
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -78,10 +88,12 @@ class NBA_Optimizer:
         self.global_team_limit = int(self.config["global_team_limit"])
         self.projection_minimum = int(self.config["projection_minimum"])
         self.randomness_amount = float(self.config["randomness"])
+        self.matchup_limits = self.config["matchup_limits"]
+        self.matchup_at_least = self.config["matchup_at_least"]
 
     # Need standard deviations to perform randomness
     def load_boom_bust(self, path):
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
@@ -97,7 +109,7 @@ class NBA_Optimizer:
                     self.player_dict[player_name]['Boom'] = float(row['Boom%'])
                     self.player_dict[player_name]['Bust'] = float(row['Bust%'])
                     self.player_dict[player_name]['Ceiling'] = float(
-                        row['Ceiling'])
+                        row['Projection']) + float(row['Std Dev'])
                     if row['Optimal%'] != '':
                         self.player_dict[player_name]['Optimal'] = float(
                             row['Optimal%'])
@@ -105,14 +117,14 @@ class NBA_Optimizer:
     # Load projections from file
     def load_projections(self, path):
         # Read projections into a dictionary
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
                 if float(row['Fpts']) < self.projection_minimum:
                     continue
-                self.player_dict[player_name] = {'Fpts': 0, 'Position': None, 'ID': 0, 'Salary': 0, 'Name': '',
-                                                 'StdDev': 0, 'Team': '', 'Ownership': 0.1, 'Optimal': 0, 'Minutes': 0, 'Boom': 0, 'Bust': 0, 'Ceiling': 0}
+                self.player_dict[player_name] = {'Fpts': 0.1, 'Position': None, 'ID': 0, 'Salary': 1000, 'Name': '', 'RealID': 0, 'Matchup': '', 'Leverage': 0,
+                                                 'StdDev': 0.1, 'Team': '', 'Ownership': 0.1, 'Optimal': 0.1, 'Minutes': 1, 'Boom': 0.1, 'Bust': 0.1, 'Ceiling': 0.1}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
                 self.player_dict[player_name]['Salary'] = int(
                     row['Salary'].replace(',', ''))
@@ -136,7 +148,7 @@ class NBA_Optimizer:
     # Load ownership from file
     def load_ownership(self, path):
         # Read ownership into a dictionary
-        with open(path) as file:
+        with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
@@ -159,7 +171,7 @@ class NBA_Optimizer:
                                   * lp_variables[player] for player in self.player_dict), 'Objective'
         # Set the salary constraints
         max_salary = 50000 if self.site == 'dk' else 60000
-        min_salary = 45000 if self.site == 'dk' else 55000
+        min_salary = 49000 if self.site == 'dk' else 59000
         self.problem += plp.lpSum(self.player_dict[player]['Salary'] *
                                   lp_variables[player] for player in self.player_dict) <= max_salary
         self.problem += plp.lpSum(self.player_dict[player]['Salary'] *
@@ -170,10 +182,19 @@ class NBA_Optimizer:
             for group in groups:
                 self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
                                           for player in group) >= int(limit)
+
         for limit, groups in self.at_most.items():
             for group in groups:
                 self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
                                           for player in group) <= int(limit)
+
+        for matchup, limit in self.matchup_limits.items():
+            self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
+                                      for player in self.player_dict if self.player_dict[player]['Matchup'] == matchup) <= int(limit)
+
+        for matchup, limit in self.matchup_at_least.items():
+            self.problem += plp.lpSum(lp_variables[player.replace('-', '#')]
+                                      for player in self.player_dict if self.player_dict[player]['Matchup'] == matchup) >= int(limit)
 
         # Address team limits
         for team, limit in self.team_limits.items():
@@ -312,6 +333,13 @@ class NBA_Optimizer:
             if lineup not in unique.values():
                 unique[fpts] = lineup
 
+        # for fpts, lineup in self.lineups.items():
+        #     id_sum = sum(self.player_dict[player]['ID'] for player in lineup)
+        #     print(id_sum, lineup)
+        #     if lineup not in unique.values():
+        #         unique[id_sum] = (fpts, lineup)
+
+        # { 'id_sum': ('fpts', 'lineup')}
         self.lineups = unique
         if self.num_uniques != 1:
             num_uniq_lineups = plp.OrderedDict(
@@ -328,9 +356,9 @@ class NBA_Optimizer:
                         use_lineup = False
                         del num_uniq_lineups[fpts]
                         break
-
                 if use_lineup:
                     self.lineups[fpts] = lineup
+
         self.format_lineups()
 
         out_path = os.path.join(os.path.dirname(
@@ -340,6 +368,7 @@ class NBA_Optimizer:
                 f.write(
                     'PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Ceiling,Own. Product,Optimal%,Minutes,Boom%,Bust%,Leverage,FPPM,PPD,STDDEV\n')
                 for fpts, x in self.lineups.items():
+                    # print(id_sum, tple)
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(
@@ -366,14 +395,22 @@ class NBA_Optimizer:
                         [self.player_dict[player]['StdDev'] for player in x])
                     # print(sum(self.player_dict[player]['Ownership'] for player in x))
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                        x[0].replace('#', '-'), self.player_dict[x[0]]['ID'],
-                        x[1].replace('#', '-'), self.player_dict[x[1]]['ID'],
-                        x[2].replace('#', '-'), self.player_dict[x[2]]['ID'],
-                        x[3].replace('#', '-'), self.player_dict[x[3]]['ID'],
-                        x[4].replace('#', '-'), self.player_dict[x[4]]['ID'],
-                        x[5].replace('#', '-'), self.player_dict[x[5]]['ID'],
-                        x[6].replace('#', '-'), self.player_dict[x[6]]['ID'],
-                        x[7].replace('#', '-'), self.player_dict[x[7]]['ID'],
+                        x[0].replace(
+                            '#', '-'), self.player_dict[x[0]]['RealID'],
+                        x[1].replace(
+                            '#', '-'), self.player_dict[x[1]]['RealID'],
+                        x[2].replace(
+                            '#', '-'), self.player_dict[x[2]]['RealID'],
+                        x[3].replace(
+                            '#', '-'), self.player_dict[x[3]]['RealID'],
+                        x[4].replace(
+                            '#', '-'), self.player_dict[x[4]]['RealID'],
+                        x[5].replace(
+                            '#', '-'), self.player_dict[x[5]]['RealID'],
+                        x[6].replace(
+                            '#', '-'), self.player_dict[x[6]]['RealID'],
+                        x[7].replace(
+                            '#', '-'), self.player_dict[x[7]]['RealID'],
                         salary, round(
                             fpts_p, 2), ceil, own_p, optimal_p, mins, boom_p, bust_p, leverage, fppm, ppd, stddev
                     )
@@ -407,15 +444,24 @@ class NBA_Optimizer:
                     leverage = sum(self.player_dict[player]
                                    ['Leverage'] for player in x)
                     lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                        self.player_dict[x[0]]['ID'], x[0].replace('#', '-'),
-                        self.player_dict[x[1]]['ID'], x[1].replace('#', '-'),
-                        self.player_dict[x[2]]['ID'], x[2].replace('#', '-'),
-                        self.player_dict[x[3]]['ID'], x[3].replace('#', '-'),
-                        self.player_dict[x[4]]['ID'], x[4].replace('#', '-'),
-                        self.player_dict[x[5]]['ID'], x[5].replace('#', '-'),
-                        self.player_dict[x[6]]['ID'], x[6].replace('#', '-'),
-                        self.player_dict[x[7]]['ID'], x[7].replace('#', '-'),
-                        self.player_dict[x[8]]['ID'], x[8].replace('#', '-'),
+                        self.player_dict[x[0]]['RealID'], x[0].replace(
+                            '#', '-'),
+                        self.player_dict[x[1]]['RealID'], x[1].replace(
+                            '#', '-'),
+                        self.player_dict[x[2]]['RealID'], x[2].replace(
+                            '#', '-'),
+                        self.player_dict[x[3]]['RealID'], x[3].replace(
+                            '#', '-'),
+                        self.player_dict[x[4]]['RealID'], x[4].replace(
+                            '#', '-'),
+                        self.player_dict[x[5]]['RealID'], x[5].replace(
+                            '#', '-'),
+                        self.player_dict[x[6]]['RealID'], x[6].replace(
+                            '#', '-'),
+                        self.player_dict[x[7]]['RealID'], x[7].replace(
+                            '#', '-'),
+                        self.player_dict[x[8]]['RealID'], x[8].replace(
+                            '#', '-'),
                         salary, round(
                             fpts_p, 2), ceil, own_p, optimal, mins, boom, bust, leverage, fppm, ppd, stddev
                     )
@@ -443,6 +489,7 @@ class NBA_Optimizer:
                             for player in lineup:
                                 if any(pos in dk_roster[i] for pos in self.player_dict[player]['Position']):
                                     eligible_players.append(player)
+                            # print(lineup, dk_roster[i], eligible_players)
                             selected = choice(eligible_players)
                             # if there is an eligible player for this position not already in the finalized roster
                             if any(player not in finalized for player in eligible_players):
