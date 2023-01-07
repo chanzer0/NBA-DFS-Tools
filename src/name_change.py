@@ -19,6 +19,7 @@ try:
                   .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace('Marjon Beauchamp', 'MarJon Beauchamp')
                   .replace('DeAndre Ayton', 'Deandre Ayton')
+                  .replace('Guillermo Hernangomez', 'Willy Hernangomez')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Projections failed to rename')
@@ -42,6 +43,7 @@ try:
                   .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace('Marjon Beauchamp', 'MarJon Beauchamp')
                   .replace('DeAndre Ayton', 'Deandre Ayton')
+                  .replace('Guillermo Hernangomez', 'Willy Hernangomez')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Ownership failed to rename')
@@ -65,6 +67,7 @@ try:
                   .replace('Nicolas Claxton', 'Nic Claxton')
                   .replace('Marjon Beauchamp', 'MarJon Beauchamp')
                   .replace('DeAndre Ayton', 'Deandre Ayton')
+                  .replace('Guillermo Hernangomez', 'Willy Hernangomez')
                   .replace(' \"', '\"'), end='')
 except:
     print('FD Boom/Bust failed to rename')
