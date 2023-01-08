@@ -68,18 +68,21 @@ class NBA_Optimizer:
                 name_key = 'Name' if self.site == 'dk' else 'Nickname'
                 player_name = row[name_key].replace('-', '#')
                 if player_name in self.player_dict:
-                    self.player_dict[player_name]['Matchup'] = row['Game Info'].split(' ')[
-                        0]
+
                     if self.site == 'dk':
                         self.player_dict[player_name]['RealID'] = int(
                             row['ID'])
                         self.player_dict[player_name]['ID'] = int(
                             row['ID'][-3:])
+                        self.player_dict[player_name]['Matchup'] = row['Game Info'].split(' ')[
+                            0]
                     else:
-                        self.player_dict[player_name]['RealID'] = int(
-                            row['ID'])
+                        self.player_dict[player_name]['RealID'] = str(
+                            row['Id'])
                         self.player_dict[player_name]['ID'] = int(
                             row['Id'].split('-')[1])
+                        self.player_dict[player_name]['Matchup'] = row['Game'].split(' ')[
+                            0]
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
