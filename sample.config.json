@@ -27,11 +27,17 @@
       ]
     ]
   },
+  "matchup_limits": {
+    "SAC@IND": 3
+  },
+  "matchup_at_least": {
+    "DAL@HOU": 2
+  },
   "team_limits": {
     "DAL": 2,
     "WAS": 4
   },
   "global_team_limit": 5,
   "projection_minimum": 15,
-  "randomness": 25
+  "randomness": 50
 }
