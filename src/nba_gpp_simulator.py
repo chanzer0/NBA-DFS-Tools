@@ -1,5 +1,4 @@
 import csv
-import heapq
 import json
 import math
 import os
@@ -8,7 +7,6 @@ import time
 import numpy as np
 import pulp as plp
 import multiprocessing as mp
-import copy
 
 class NBA_GPP_Simulator:
     config = None
@@ -339,45 +337,42 @@ class NBA_GPP_Simulator:
 
     @staticmethod
     def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor,salary_ceiling, optimal_score, salaries, projections):
-        np.random.seed((os.getpid() * int(time.time())) % 123456789)
+        #new random seed for each lineup (without this there is a ton of dupes)
+        np.random.seed(lu_num)
         lus = {}
-        i=0
-        while i < lu_num:
+        #make sure nobody is already showing up in a lineup
+        if sum(in_lineup) != 0:
+            in_lineup.fill(0)
+        reject = True
+        while reject:
+            salary = 0
+            proj = 0
             if sum(in_lineup) != 0:
                 in_lineup.fill(0)
-            reject = True
-            while reject:
-                salary = 0
-                proj = 0
-                if sum(in_lineup) != 0:
-                    in_lineup.fill(0)
-                lineup = []
-                for pos in pos_matrix:
-                    valid_players = np.where((pos>0)&(in_lineup==0))
-                    plyr_list = names[valid_players]
-                    prob_list = ownership[valid_players]
-                    prob_list = prob_list/prob_list.sum()
-                    choice = np.random.choice(a=plyr_list, p=prob_list)
-                    #print(choice)
-                    choice_idx = np.where(names==choice)[0]
-                    #print(choice_idx)
-                    lineup.append(choice)
-                    in_lineup[choice_idx] = 1
-                    #print(in_lineup[choice_idx])
-                    #print(in_lineup)
-                    salary += salaries[choice_idx]
-                    proj += projections[choice_idx]
-                # Must have a reasonable salary
-                if (salary >= salary_floor and salary <= salary_ceiling):
-                    # Must have a reasonable projection (within 10% of optimal)
-                    # changed this value to 25% to test speed
-                    reasonable_projection = optimal_score - \
-                        (0.60*optimal_score)
-                    if proj >= reasonable_projection:
-                        reject = False
-                        lus[i] = {
-                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
-                        i+=1
+            lineup = []
+            for pos in pos_matrix:
+                #check for players eligible for the position and make sure they arent in a lineup, returns a list of indices of available player
+                valid_players = np.where((pos>0)&(in_lineup==0))
+                #grab names of players eligible
+                plyr_list = names[valid_players]
+                #create np array of probability of being seelcted based on ownership and who is eligible at the position
+                prob_list = ownership[valid_players]
+                prob_list = prob_list/prob_list.sum()
+                choice = np.random.choice(a=plyr_list, p=prob_list)
+                choice_idx = np.where(names==choice)[0]
+                lineup.append(choice)
+                in_lineup[choice_idx] = 1
+                salary += salaries[choice_idx]
+                proj += projections[choice_idx]
+            # Must have a reasonable salary
+            if (salary >= salary_floor and salary <= salary_ceiling):
+                # Must have a reasonable projection (within 60% of optimal) **people make a lot of bad lineups
+                reasonable_projection = optimal_score - \
+                    (0.60*optimal_score)
+                if proj >= reasonable_projection:
+                    reject = False
+                    lus[lu_num] = {
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
         return lus
 
     def generate_field_lineups(self):
@@ -405,21 +400,31 @@ class NBA_GPP_Simulator:
         optimal_score = self.optimal_score
         salary_floor = self.salary - 2500 #anecdotally made the most sense when looking at previous contests
         salary_ceiling = self.salary
-        lu_tuple = (diff, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections)
-        # generate field lineups  with uploaded opto to match the correct contest size
+        problems = []
+        #creating tuples of the above np arrays plus which lineup number we are going to create
+        for i in range(diff):
+            lu_tuple = (i, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections)
+            problems.append(lu_tuple)
         start_time = time.time()
         with mp.Pool() as pool:
-            print('using ' + str(pool._processes) + ' workers')
-            output = list(pool.starmap(self.generate_lineups, [lu_tuple]))
+            output = pool.starmap(self.generate_lineups, problems)
+            print('number of running processes =',
+          pool.__dict__['_processes']
+          if (pool.__dict__['_state']).upper() == 'RUN'
+          else None
+          )
             pool.close()
             pool.join()
-        new_keys = list(range(max(self.field_lineups.keys())+1,self.field_size))
-        new_lus = {}
-        for nk,k in zip(new_keys,output[0].keys()):
-            new_lus[nk] = output[0][k]
+        if len(self.field_lineups) == 0:
+            new_keys = list(range(0,self.field_size))
+        else:
+            new_keys = list(range(max(self.field_lineups.keys())+1,self.field_size))
+        nk = new_keys[0]
+        for i,o in enumerate(output):
             if nk in self.field_lineups.keys():
                 print('bad lineups dict, please check dk_data files')
-        self.field_lineups.update(new_lus)
+            self.field_lineups[nk] = o[i]      
+            nk+=1
         end_time = time.time()
         print('lineups took ' + str(end_time-start_time) + ' seconds')
         print(str(diff) + ' field lineups successfully generated')
@@ -442,19 +447,38 @@ class NBA_GPP_Simulator:
             #values['sim_results'] = fpts_sim
             # store lineup fpts sum in 2d np array where index (row) corresponds to index of field_lineups and columns are the fpts from each sim
             fpts_array[index] = fpts_sim
-        ranks = np.argsort(fpts_array, axis=0)
+        #print(fpts_array)
+        ranks = np.argsort(fpts_array, axis=0)[::-1]
+        #print(fpts_array[ranks])
         # count wins, top 10s vectorized
-        wins = np.count_nonzero(ranks == 0, axis=1)
-        t10 = np.count_nonzero(ranks < 10, axis=1)
-        roi = np.sum(payout_array[ranks], axis=1)
+        wins,win_counts= np.unique(ranks[0,:],return_counts=True)
+        #print(wins, win_counts)
+        t10,t10_counts= np.unique(ranks[0:9:],return_counts=True)
+        #wins = np.count_nonzero(ranks == 0, axis=1)
+        #t10 = np.count_nonzero(ranks < 10, axis=1)
+        #print(payout_array)
+        #lus = np.array(list(self.field_lineups.keys()))
+        #oi = np.sum(payout_array[ind[:,0]], axis=1)
+        #roi = np.nonzero(np.in1d(ranks,lus))[0]
+        #print(roi)
         # summing up each lineup, probably a way to vectorize this too (maybe just turning the field dict into an array too)
         for idx in range(fpts_array.shape[0]):
             # Winning
-            self.field_lineups[idx]['Wins'] += wins[idx]
+            if idx in wins:
+                self.field_lineups[idx]['Wins'] += win_counts[np.where(wins==idx)][0]
             # Top 10
-            self.field_lineups[idx]['Top10'] += t10[idx]
-            if self.use_contest_data:
-                self.field_lineups[idx]['ROI'] += roi[idx]
+            if idx in t10:
+                self.field_lineups[idx]['Top10'] += t10_counts[np.where(t10==idx)][0]
+            ###can't figure out how to get roi for each lineup index without iterating and iterating is slow
+            #if self.use_contest_data:
+                #ind = np.argwhere(ranks==idx)
+                #if idx ==0:
+                    #print('ind')
+                    #print(ind)
+                    #print(payout_array[ind[:,0]])
+                #print(roi[idx])
+                #print(np.sum(payout_array[ind[:,0]]))
+                #self.field_lineups[idx]['ROI'] += np.sum()
 
         print(str(self.num_iterations) +
               ' tournament simulations finished. Outputting.')
