@@ -369,7 +369,7 @@ class NBA_GPP_Simulator:
             if (salary >= salary_floor and salary <= salary_ceiling):
                 # Must have a reasonable projection (within 60% of optimal) **people make a lot of bad lineups
                 reasonable_projection = optimal_score - \
-                    (0.60*optimal_score)
+                    (0.4*optimal_score)
                 if proj >= reasonable_projection:
                     reject = False
                     lus[lu_num] = {
@@ -623,5 +623,5 @@ class NBA_GPP_Simulator:
                 top10_p = round(
                     data['Top10']/self.num_iterations / 10 * 100, 2)
                 proj_own = self.player_dict[player]['Ownership']
-                f.write('{},{}%,{}%,{}%,{}%,{}%\n'.format(player.replace(
+                f.write('{},{}%,{}%,{}%,{}%\n'.format(player.replace(
                     '#', '-'), win_p, top10_p, field_p, proj_own))
