@@ -48,12 +48,13 @@ Where:
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
 
-  - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations> <match>`, where `<field_size>` is the known entrant size, `<num_iterations>` is the number of times you wish to simulate the tournament, and `<match>` is a boolean flag (true/false) to tell the simulator to match the difference in your `tournament_lineups.csv` (say it has 8.5k for example) with your desired field size (say 10k for example -- this will generate an extra 1500 lineups to match). You will need at least `field_size` number of lineups in your `tournament_lineups.csv` as you have specified -- you will need to `match` if you don't have enough lineups.
+  - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, `<num_iterations>` is the number of times you wish to simulate the tournament.
+
   - Usage #2 allows you to specify an actual DraftKings contest, which will dictate `<field_size>`. You will specify the number of iterations, but specifying the contest allows the simulation to take ROI into account, since the payout structure and entry fee is known. The usage for this is: `python .\main.py <site> sim cid <num_iterations> <match>`. To execute this usage, you will need a `contest_structure.csv` file in the structure of the image shown below. You can obtain this fairly quickly by opening up the contest details overlay and copy/pasting the prize payouts section into Excel or Google sheets, then using `Ctrl+H` to get rid of 'st', 'nd', 'rd', 'th', etc...
 
     ![Contest structure input](readme_images/contest_structure_input.png)
 
-    - Additionally, you may opt to upload lineups from a file rather than have them randomly generated/simulated. To specify this option, you will add `file` as a flag in your command like so: `python .\main.py <site> sim cid file 10000`. You must have an input file called `tournament_lineups.csv` in the base input directory. This allows you to upload specifically-tailored lineups that you feel are more representative of your contest than the ones generated. It also has the added benefit of being much faster than generating lineups. For example, you may take the output of the `opto` process, and rename the file to `tournament_lineups.csv`, and use those as your input for the `sim` process.
+    - Additionally, you may opt to upload lineups from a file rather than have them randomly generated/simulated. To specify this option, you will add `file` as a flag in your command like so: `python .\main.py <site> sim cid file 10000`. You must have an input file called `tournament_lineups.csv` in the base input directory. This allows you to upload specifically-tailored lineups that you feel are more representative of your contest than the ones generated. It also has the added benefit of being much faster than generating lineups. For example, you may take the output of the `opto` process, and rename the file to `tournament_lineups.csv`, and use those as your input for the `sim` process. The simulator will now automatically generate the difference between the number of lineups in the `tournament_lineups.csv` file and the `<field_size>` parameter from either the `contest_structure.csv` or the shell prompt.
 
 - `sd` for running showdown crunches, with or without randomness
 
@@ -100,6 +101,12 @@ The structure for the config is as follows:
 },
 "team_limits": {
     "MIL": 3, // Will use at most 3 players from Milwaukee
+},
+"matchup_limits": {
+"SAC@IND": 3 // WIll use at most 3 players from Sacramento @ Indiana
+}, 
+"matchup_at_least": {
+"DAL@HOU": 2 // WIll use at least 2 players from Dallas @ Houston
 },
 "global_team_limit": 5, // This will limit all teams to a maximum of 5 players
 "projection_minimum": 15, // No player projected under 15 fpts will be used
