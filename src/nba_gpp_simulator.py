@@ -4,15 +4,17 @@ import json
 import math
 import os
 import random
-
+import time
 import numpy as np
 import pulp as plp
-
+import multiprocessing as mp
+import copy
 
 class NBA_GPP_Simulator:
     config = None
     player_dict = {}
     field_lineups = {}
+    gen_lineup_list = []
     roster_construction = []
     salary = None
     optimal_score = None
@@ -63,9 +65,12 @@ class NBA_GPP_Simulator:
             print('Contest payout structure loaded.')
         else:
             self.field_size = int(field_size)
-
         self.num_iterations = int(num_iterations)
         self.get_optimal()
+        if self.use_lineup_input:
+            self.load_lineups_from_file()
+        if self.match_lineup_input_to_field_size or len(self.field_lineups) == 0:
+            self.generate_field_lineups()
 
     # In order to make reasonable tournament lineups, we want to be close enough to the optimal that
     # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
@@ -288,128 +293,136 @@ class NBA_GPP_Simulator:
                     self.player_dict[player_name]['Ceiling'] = float(
                         row['Ceiling'])
 
-    def select_random_player(self, position):
-        plyr_list = []
-        prob_list = []
-        for player in self.player_dict:
-            if self.player_dict[player]['In Lineup'] == False:
-                should_use = False
-                if self.site == 'dk':
-                    if position in self.player_dict[player]['Position']:
-                        should_use = True
-
-                elif self.site == 'fd':
-                    if position in self.player_dict[player]['Position']:
-                        should_use = True
-
-                if should_use:
-                    plyr_list.append(player)
-                    prob_list.append(self.player_dict[player]['Ownership'])
-
-        prob_list = [float(i)/sum(prob_list) for i in prob_list]
-        return np.random.choice(a=plyr_list, p=prob_list)
 
     def remap(self, fieldnames):
         return ['PG', 'PG2', 'SG', 'SG2', 'SF', 'SF2', 'PF', 'PF2', 'C']
 
-    def generate_field_lineups(self):
-        print('Generating ' + str(self.field_size) + ' lineups.')
-        if self.use_lineup_input:
-            i = 0
-            path = os.path.join(os.path.dirname(
-                __file__), '../{}_data/{}'.format(self.site, 'tournament_lineups.csv'))
-            with open(path) as file:
-                if self.site == 'dk':
-                    reader = csv.DictReader(file)
-                    for row in reader:
-                        if i == self.field_size:
-                            break
-                        lineup = [row['PG'].split('(')[0][:-1].replace('-', '#'), row['SG'].split('(')[0][:-1].replace('-', '#'),
-                                  row['SF'].split(
-                                      '(')[0][:-1].replace('-', '#'), row['PF'].split('(')[0][:-1].replace('-', '#'),
-                                  row['C'].split(
-                                      '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
-                                  row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
-                        # storing if this lineup was made by an optimizer or with the generation process in this script
-                        self.field_lineups[i] = {
-                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
-                        i += 1
-                else:
-                    reader = csv.reader(file)
-                    fieldnames = self.remap(next(reader))
-                    for row in reader:
-                        row = dict(zip(fieldnames, row))
-                        if i == self.field_size:
-                            break
-                        lineup = [row['PG'].split(':')[1].replace('-', '#'), row['PG2'].split(':')[1].replace('-', '#'),
-                                  row['SG'].split(':')[1].replace(
-                                      '-', '#'), row['SG2'].split(':')[1].replace('-', '#'),
-                                  row['SF'].split(':')[1].replace(
-                                      '-', '#'), row['SF2'].split(':')[1].replace('-', '#'),
-                                  row['PF'].split(':')[1].replace(
-                                      '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
-                                  row['C'].split(':')[1].replace('-', '#')]
-                        self.field_lineups[i] = {
-                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
-                        i += 1
-            # generate field lineups  with uploaded opto to match the correct contest size
-            if self.match_lineup_input_to_field_size:
-                while len(self.field_lineups) < (self.field_size):
-                    reject = True
-                    while reject:
-                        salary = 0
-                        lineup = []
-                        for player in self.player_dict:
-                            self.player_dict[player]['In Lineup'] = False
-                        for pos in self.roster_construction:
-                            x = self.select_random_player(pos)
-                            self.player_dict[x]['In Lineup'] = True
-                            lineup.append(x)
-                            salary += self.player_dict[x]['Salary']
-                        # Must have a reasonable salary
-                        reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
-                        if (salary >= reasonable_salary and salary <= self.salary):
-                            # Must have a reasonable projection (within 10% of optimal)
-                            # changed this value to 25% to test speed
-                            reasonable_projection = self.optimal_score - \
-                                (0.60*self.optimal_score)
-                            if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
-                                reject = False
-                                self.field_lineups[i] = {
-                                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
-                                i += 1
-                                if i % 1000 == 0:
-                                    print(i)
-                print(len(self.field_lineups))
-            self.field_size = i
-        else:
-            for i in range(self.field_size):
-                reject = True
-                while reject:
-                    salary = 0
-                    lineup = []
-                    for player in self.player_dict:
-                        self.player_dict[player]['In Lineup'] = False
-                    for pos in self.roster_construction:
-                        x = self.select_random_player(pos)
-                        self.player_dict[x]['In Lineup'] = True
-                        lineup.append(x)
-                        salary += self.player_dict[x]['Salary']
-                    # Must have a reasonable salary
-                    reasonable_salary = self.salary - 2500 if self.site == 'dk' else self.salary - 2500
-                    if (salary >= reasonable_salary and salary <= self.salary):
-                        # Must have a reasonable projection (within 10% of optimal)
-                        # changed this value to 25% to test speed
-                        reasonable_projection = self.optimal_score - \
-                            (0.60*self.optimal_score)
-                        if (sum(self.player_dict[player]['Fpts'] for player in lineup) >= reasonable_projection):
-                            reject = False
-                            if i % 1000 == 0:
-                                print(i)
-                self.field_lineups[i] = {
-                    'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
+    def load_lineups_from_file(self):
+        print('loading lineups')
+        i = 0
+        path = os.path.join(os.path.dirname(
+            __file__), '../{}_data/{}'.format(self.site, 'tournament_lineups.csv'))
+        with open(path) as file:
+            if self.site == 'dk':
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if i == self.field_size:
+                        break
+                    lineup = [row['PG'].split('(')[0][:-1].replace('-', '#'), row['SG'].split('(')[0][:-1].replace('-', '#'),
+                                row['SF'].split(
+                                    '(')[0][:-1].replace('-', '#'), row['PF'].split('(')[0][:-1].replace('-', '#'),
+                                row['C'].split(
+                                    '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
+                                row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
+                    # storing if this lineup was made by an optimizer or with the generation process in this script
+                    self.field_lineups[i] = {
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
+                    i += 1
+            else:
+                reader = csv.reader(file)
+                fieldnames = self.remap(next(reader))
+                for row in reader:
+                    row = dict(zip(fieldnames, row))
+                    if i == self.field_size:
+                        break
+                    lineup = [row['PG'].split(':')[1].replace('-', '#'), row['PG2'].split(':')[1].replace('-', '#'),
+                                row['SG'].split(':')[1].replace(
+                                    '-', '#'), row['SG2'].split(':')[1].replace('-', '#'),
+                                row['SF'].split(':')[1].replace(
+                                    '-', '#'), row['SF2'].split(':')[1].replace('-', '#'),
+                                row['PF'].split(':')[1].replace(
+                                    '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
+                                row['C'].split(':')[1].replace('-', '#')]
+                    self.field_lineups[i] = {
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
+                    i += 1
 
-        print(str(self.field_size) + ' field lineups successfully generated')
+    @staticmethod
+    def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor,salary_ceiling, optimal_score, salaries, projections):
+        np.random.seed((os.getpid() * int(time.time())) % 123456789)
+        lus = {}
+        i=0
+        while i < lu_num:
+            if sum(in_lineup) != 0:
+                in_lineup.fill(0)
+            reject = True
+            while reject:
+                salary = 0
+                proj = 0
+                if sum(in_lineup) != 0:
+                    in_lineup.fill(0)
+                lineup = []
+                for pos in pos_matrix:
+                    valid_players = np.where((pos>0)&(in_lineup==0))
+                    plyr_list = names[valid_players]
+                    prob_list = ownership[valid_players]
+                    prob_list = prob_list/prob_list.sum()
+                    choice = np.random.choice(a=plyr_list, p=prob_list)
+                    #print(choice)
+                    choice_idx = np.where(names==choice)[0]
+                    #print(choice_idx)
+                    lineup.append(choice)
+                    in_lineup[choice_idx] = 1
+                    #print(in_lineup[choice_idx])
+                    #print(in_lineup)
+                    salary += salaries[choice_idx]
+                    proj += projections[choice_idx]
+                # Must have a reasonable salary
+                if (salary >= salary_floor and salary <= salary_ceiling):
+                    # Must have a reasonable projection (within 10% of optimal)
+                    # changed this value to 25% to test speed
+                    reasonable_projection = optimal_score - \
+                        (0.60*optimal_score)
+                    if proj >= reasonable_projection:
+                        reject = False
+                        lus[i] = {
+                            'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'generated'}
+                        i+=1
+        return lus
+
+    def generate_field_lineups(self):
+        diff = self.field_size - len(self.field_lineups)
+        print('Generating ' + str(diff) + ' lineups.')
+        names = list(self.player_dict.keys())
+        in_lineup = np.zeros(shape=len(names))
+        i=0
+        ownership = np.array([self.player_dict[player_name]['Ownership']/100 for player_name in names])
+        salaries = np.array([self.player_dict[player_name]['Salary'] for player_name in names])
+        projections = np.array([self.player_dict[player_name]['Fpts'] for player_name in names])
+        positions = []
+        for pos in self.roster_construction:
+            pos_list = []
+            own = []
+            for player_name in names:
+                if pos in self.player_dict[player_name]['Position']:
+                    pos_list.append(1)
+                else:
+                    pos_list.append(0)
+            i+=1
+            positions.append(np.array(pos_list))
+        pos_matrix = np.array(positions)
+        names = np.array(names)
+        optimal_score = self.optimal_score
+        salary_floor = self.salary - 2500 #anecdotally made the most sense when looking at previous contests
+        salary_ceiling = self.salary
+        lu_tuple = (diff, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections)
+        # generate field lineups  with uploaded opto to match the correct contest size
+        start_time = time.time()
+        with mp.Pool() as pool:
+            print('using ' + str(pool._processes) + ' workers')
+            output = list(pool.starmap(self.generate_lineups, [lu_tuple]))
+            pool.close()
+            pool.join()
+        new_keys = list(range(max(self.field_lineups.keys())+1,self.field_size))
+        new_lus = {}
+        for nk,k in zip(new_keys,output[0].keys()):
+            new_lus[nk] = output[0][k]
+            if nk in self.field_lineups.keys():
+                print('bad lineups dict, please check dk_data files')
+        self.field_lineups.update(new_lus)
+        end_time = time.time()
+        print('lineups took ' + str(end_time-start_time) + ' seconds')
+        print(str(diff) + ' field lineups successfully generated')
 
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
