@@ -315,7 +315,7 @@ class NBA_GPP_Simulator:
                                 row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
                     # storing if this lineup was made by an optimizer or with the generation process in this script
                     self.field_lineups[i] = {
-                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0, 'Type': 'opto'}
                     i += 1
             else:
                 reader = csv.reader(file)
@@ -333,7 +333,7 @@ class NBA_GPP_Simulator:
                                     '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
                                 row['C'].split(':')[1].replace('-', '#')]
                     self.field_lineups[i] = {
-                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Type': 'opto'}
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0, 'Type': 'opto'}
                     i += 1
 
     @staticmethod
