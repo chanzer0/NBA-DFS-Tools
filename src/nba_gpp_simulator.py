@@ -8,6 +8,7 @@ import numpy as np
 import pulp as plp
 import multiprocessing as mp
 
+
 class NBA_GPP_Simulator:
     config = None
     player_dict = {}
@@ -308,7 +309,6 @@ class NBA_GPP_Simulator:
                     self.player_dict[player_name]['Ceiling'] = float(
                         row['Ceiling'])
 
-
     def remap(self, fieldnames):
         return ['PG', 'PG2', 'SG', 'SG2', 'SF', 'SF2', 'PF', 'PF2', 'C']
 
@@ -324,14 +324,14 @@ class NBA_GPP_Simulator:
                     if i == self.field_size:
                         break
                     lineup = [row['PG'].split('(')[0][:-1].replace('-', '#'), row['SG'].split('(')[0][:-1].replace('-', '#'),
-                                row['SF'].split(
-                                    '(')[0][:-1].replace('-', '#'), row['PF'].split('(')[0][:-1].replace('-', '#'),
-                                row['C'].split(
-                                    '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
-                                row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
+                              row['SF'].split(
+                        '(')[0][:-1].replace('-', '#'), row['PF'].split('(')[0][:-1].replace('-', '#'),
+                        row['C'].split(
+                        '(')[0][:-1].replace('-', '#'), row['G'].split('(')[0][:-1].replace('-', '#'),
+                        row['F'].split('(')[0][:-1].replace('-', '#'), row['UTIL'].split('(')[0][:-1].replace('-', '#')]
                     # storing if this lineup was made by an optimizer or with the generation process in this script
                     self.field_lineups[i] = {
-                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0, 'Type': 'opto'}
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes': 0, 'Type': 'opto'}
                     i += 1
             else:
                 reader = csv.reader(file)
@@ -341,13 +341,13 @@ class NBA_GPP_Simulator:
                     if i == self.field_size:
                         break
                     lineup = [row['PG'].split(':')[1].replace('-', '#'), row['PG2'].split(':')[1].replace('-', '#'),
-                                row['SG'].split(':')[1].replace(
-                                    '-', '#'), row['SG2'].split(':')[1].replace('-', '#'),
-                                row['SF'].split(':')[1].replace(
-                                    '-', '#'), row['SF2'].split(':')[1].replace('-', '#'),
-                                row['PF'].split(':')[1].replace(
-                                    '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
-                                row['C'].split(':')[1].replace('-', '#')]
+                              row['SG'].split(':')[1].replace(
+                        '-', '#'), row['SG2'].split(':')[1].replace('-', '#'),
+                        row['SF'].split(':')[1].replace(
+                        '-', '#'), row['SF2'].split(':')[1].replace('-', '#'),
+                        row['PF'].split(':')[1].replace(
+                        '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
+                        row['C'].split(':')[1].replace('-', '#')]
                     self.field_lineups[i] = {
                         'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0, 'Type': 'opto'}
                     i += 1
@@ -357,7 +357,7 @@ class NBA_GPP_Simulator:
         #new random seed for each lineup (without this there is a ton of dupes)
         np.random.seed(lu_num)
         lus = {}
-        #make sure nobody is already showing up in a lineup
+        # make sure nobody is already showing up in a lineup
         if sum(in_lineup) != 0:
             in_lineup.fill(0)
         reject = True
@@ -368,15 +368,15 @@ class NBA_GPP_Simulator:
                 in_lineup.fill(0)
             lineup = []
             for pos in pos_matrix:
-                #check for players eligible for the position and make sure they arent in a lineup, returns a list of indices of available player
-                valid_players = np.where((pos>0)&(in_lineup==0))
-                #grab names of players eligible
+                # check for players eligible for the position and make sure they arent in a lineup, returns a list of indices of available player
+                valid_players = np.where((pos > 0) & (in_lineup == 0))
+                # grab names of players eligible
                 plyr_list = names[valid_players]
-                #create np array of probability of being seelcted based on ownership and who is eligible at the position
+                # create np array of probability of being seelcted based on ownership and who is eligible at the position
                 prob_list = ownership[valid_players]
                 prob_list = prob_list/prob_list.sum()
                 choice = np.random.choice(a=plyr_list, p=prob_list)
-                choice_idx = np.where(names==choice)[0]
+                choice_idx = np.where(names == choice)[0]
                 lineup.append(choice)
                 in_lineup[choice_idx] = 1
                 salary += salaries[choice_idx]
@@ -389,7 +389,7 @@ class NBA_GPP_Simulator:
                 if proj >= reasonable_projection:
                     reject = False
                     lus[lu_num] = {
-                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0,'Type': 'generated'}
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes': 0, 'Type': 'generated'}
         return lus
 
     def generate_field_lineups(self):
@@ -470,21 +470,25 @@ class NBA_GPP_Simulator:
         ranks = np.argsort(fpts_array, axis=0)[::-1]
         # count wins, top 10s vectorized
         lus = list(self.field_lineups.keys())
-        wins,win_counts= np.unique(ranks[0,:],return_counts=True)
-        t10,t10_counts= np.unique(ranks[0:9:],return_counts=True)
-        cashes,cash_counts= np.unique(ranks[:len(payout_array)],return_counts=True)
+        wins, win_counts = np.unique(ranks[0, :], return_counts=True)
+        t10, t10_counts = np.unique(ranks[0:9:], return_counts=True)
+        cashes, cash_counts = np.unique(
+            ranks[:len(payout_array)], return_counts=True)
         # summing up ach lineup, probably a way to v)ectorize this too (maybe just turning the field dict into an array too)
         for idx in self.field_lineups.keys():
             # Winning
             if idx in wins:
-                self.field_lineups[idx]['Wins'] += win_counts[np.where(wins==idx)][0]
+                self.field_lineups[idx]['Wins'] += win_counts[np.where(
+                    wins == idx)][0]
             # Top 10
             if idx in t10:
-                self.field_lineups[idx]['Top10'] += t10_counts[np.where(t10==idx)][0]
-            ###can't figure out how to get roi for each lineup index without iterating and iterating is slow
+                self.field_lineups[idx]['Top10'] += t10_counts[np.where(
+                    t10 == idx)][0]
+            # can't figure out how to get roi for each lineup index without iterating and iterating is slow
             if self.use_contest_data:
                 if idx in cashes:
-                    self.field_lineups[idx]['Cashes'] += cash_counts[np.where(cashes==idx)][0]
+                    self.field_lineups[idx]['Cashes'] += cash_counts[np.where(
+                        cashes == idx)][0]
                 #    self.field_lineups[idx]['ROI'] -= (loss_counts[np.where(losses==idx)][0])*self.entry_fee
                 #ind = np.argwhere(ranks==idx)
                 #roi = np.sum(payout_array[ind[:,0]])
@@ -597,7 +601,7 @@ class NBA_GPP_Simulator:
                             '-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
                         self.player_dict[x['Lineup'][8].replace(
                             '-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
-                        fpts_p, ceil_p, salary, win_p, top10_p, own_p, cash_p,lu_type
+                        fpts_p, ceil_p, salary, win_p, top10_p, own_p, cash_p, lu_type
                     )
             unique[index] = lineup_str
 
