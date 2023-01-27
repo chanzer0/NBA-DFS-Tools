@@ -24,12 +24,18 @@ class NBA_GPP_Simulator:
     use_contest_data = False
     entry_fee = None
     use_lineup_input = None
+    projection_minimum = 15
+    randomness_amount = 100
+    min_lineup_salary = 48000
+    max_pct_off_optimal = 0.4
+
 
     def __init__(self, site, field_size, num_iterations, use_contest_data, use_lineup_input, match_lineup_input_to_field_size):
         self.site = site
         self.use_lineup_input = use_lineup_input
         self.match_lineup_input_to_field_size = match_lineup_input_to_field_size
         self.load_config()
+        self.load_rules()
         projection_path = os.path.join(os.path.dirname(
             __file__), '../{}_data/{}'.format(site, self.config['projection_path']))
         self.load_projections(projection_path)
@@ -69,6 +75,12 @@ class NBA_GPP_Simulator:
             self.load_lineups_from_file()
         if self.match_lineup_input_to_field_size or len(self.field_lineups) == 0:
             self.generate_field_lineups()
+
+    def load_rules(self):
+        self.projection_minimum = int(self.config["projection_minimum"])
+        self.randomness_amount = float(self.config["randomness"])
+        self.min_lineup_salary = int(self.config["min_lineup_salary"])
+        self.max_pct_off_optimal = float(self.config["max_pct_off_optimal"])
 
     # In order to make reasonable tournament lineups, we want to be close enough to the optimal that
     # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
@@ -241,6 +253,8 @@ class NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
+                if float(row['Fpts']) < self.projection_minimum:
+                    continue
                 self.player_dict[player_name] = {'Fpts': 0, 'Position': [
                 ], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ceiling': 0, 'Ownership': 0.1, 'In Lineup': False}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
@@ -336,7 +350,7 @@ class NBA_GPP_Simulator:
                     i += 1
 
     @staticmethod
-    def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor,salary_ceiling, optimal_score, salaries, projections):
+    def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor,salary_ceiling, optimal_score, salaries, projections, max_pct_off_optimal):
         #new random seed for each lineup (without this there is a ton of dupes)
         np.random.seed(lu_num)
         lus = {}
@@ -368,7 +382,7 @@ class NBA_GPP_Simulator:
             if (salary >= salary_floor and salary <= salary_ceiling):
                 # Must have a reasonable projection (within 60% of optimal) **people make a lot of bad lineups
                 reasonable_projection = optimal_score - \
-                    (0.2*optimal_score)
+                    (max_pct_off_optimal*optimal_score)
                 if proj >= reasonable_projection:
                     reject = False
                     lus[lu_num] = {
@@ -398,12 +412,13 @@ class NBA_GPP_Simulator:
         pos_matrix = np.array(positions)
         names = np.array(names)
         optimal_score = self.optimal_score
-        salary_floor = self.salary - 700 #anecdotally made the most sense when looking at previous contests
+        salary_floor = self.min_lineup_salary #anecdotally made the most sense when looking at previous contests
         salary_ceiling = self.salary
+        max_pct_off_optimal = self.max_pct_off_optimal
         problems = []
         #creating tuples of the above np arrays plus which lineup number we are going to create
         for i in range(diff):
-            lu_tuple = (i, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections)
+            lu_tuple = (i, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections,max_pct_off_optimal)
             problems.append(lu_tuple)
         start_time = time.time()
         with mp.Pool() as pool:
@@ -433,7 +448,7 @@ class NBA_GPP_Simulator:
         print('Running ' + str(self.num_iterations) + ' simulations')
         start_time = time.time()
         temp_fpts_dict = {p: np.random.normal(
-            s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
+            s['Fpts'], s['StdDev']* self.randomness_amount / 100, size=self.num_iterations) for p, s in self.player_dict.items()}
         # generate arrays for every sim result for each player in the lineup and sum
         fpts_array = np.zeros(shape=(self.field_size, self.num_iterations))
         # converting payout structure into an np friendly format, could probably just do this in the load contest function
