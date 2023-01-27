@@ -7,7 +7,6 @@ import time
 import numpy as np
 import pulp as plp
 import multiprocessing as mp
-import pandas as pd
 
 class NBA_GPP_Simulator:
     config = None
@@ -369,7 +368,7 @@ class NBA_GPP_Simulator:
             if (salary >= salary_floor and salary <= salary_ceiling):
                 # Must have a reasonable projection (within 60% of optimal) **people make a lot of bad lineups
                 reasonable_projection = optimal_score - \
-                    (0.4*optimal_score)
+                    (0.2*optimal_score)
                 if proj >= reasonable_projection:
                     reject = False
                     lus[lu_num] = {
@@ -399,7 +398,7 @@ class NBA_GPP_Simulator:
         pos_matrix = np.array(positions)
         names = np.array(names)
         optimal_score = self.optimal_score
-        salary_floor = self.salary - 2500 #anecdotally made the most sense when looking at previous contests
+        salary_floor = self.salary - 700 #anecdotally made the most sense when looking at previous contests
         salary_ceiling = self.salary
         problems = []
         #creating tuples of the above np arrays plus which lineup number we are going to create
