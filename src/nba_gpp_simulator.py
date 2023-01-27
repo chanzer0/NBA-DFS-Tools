@@ -221,7 +221,7 @@ class NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 if self.field_size is None:
-                    self.field_size = float(row['Field Size'])
+                    self.field_size = int(row['Field Size'])
                 if self.entry_fee is None:
                     self.entry_fee = float(row['Entry Fee'])
                 # multi-position payouts
