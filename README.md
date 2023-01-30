@@ -111,6 +111,8 @@ The structure for the config is as follows:
 "global_team_limit": 5, // This will limit all teams to a maximum of 5 players
 "projection_minimum": 15, // No player projected under 15 fpts will be used
 "randomness": 25, // 25% standard deviation randomness
+"min_lineup_salary" : 48000, //minimum lineup salary to be used in the gpp simulation module
+"max_pct_off_optimal" : 0.4 //maximum percent a lineup can be off the optimal in the gpp simulation module
 ```
 
 ## Output

@@ -7,7 +7,6 @@ import time
 import numpy as np
 import pulp as plp
 import multiprocessing as mp
-import pandas as pd
 
 
 class NBA_GPP_Simulator:
@@ -26,12 +25,18 @@ class NBA_GPP_Simulator:
     use_contest_data = False
     entry_fee = None
     use_lineup_input = None
+    projection_minimum = 15
+    randomness_amount = 100
+    min_lineup_salary = 48000
+    max_pct_off_optimal = 0.4
+
 
     def __init__(self, site, field_size, num_iterations, use_contest_data, use_lineup_input, match_lineup_input_to_field_size):
         self.site = site
         self.use_lineup_input = use_lineup_input
         self.match_lineup_input_to_field_size = match_lineup_input_to_field_size
         self.load_config()
+        self.load_rules()
         projection_path = os.path.join(os.path.dirname(
             __file__), '../{}_data/{}'.format(site, self.config['projection_path']))
         self.load_projections(projection_path)
@@ -71,6 +76,12 @@ class NBA_GPP_Simulator:
             self.load_lineups_from_file()
         if self.match_lineup_input_to_field_size or len(self.field_lineups) == 0:
             self.generate_field_lineups()
+
+    def load_rules(self):
+        self.projection_minimum = int(self.config["projection_minimum"])
+        self.randomness_amount = float(self.config["randomness"])
+        self.min_lineup_salary = int(self.config["min_lineup_salary"])
+        self.max_pct_off_optimal = float(self.config["max_pct_off_optimal"])
 
     # In order to make reasonable tournament lineups, we want to be close enough to the optimal that
     # a person could realistically land on this lineup. Skeleton here is taken from base `nba_optimizer.py`
@@ -214,7 +225,6 @@ class NBA_GPP_Simulator:
                     self.field_size = int(row['Field Size'])
                 if self.entry_fee is None:
                     self.entry_fee = float(row['Entry Fee'])
-
                 # multi-position payouts
                 if '-' in row['Place']:
                     indices = row['Place'].split('-')
@@ -223,10 +233,14 @@ class NBA_GPP_Simulator:
                     for i in range(int(indices[0]), int(indices[1])+1):
                         # print(i)
                         # Where I'm from, we 0 index things. Thus, -1 since Payout starts at 1st place
+                        if i >= self.field_size:
+                            break
                         self.payout_structure[i - 1] = float(
                             row['Payout'].split('.')[0].replace(',', ''))
                 # single-position payouts
                 else:
+                    if int(row['Place']) >= self.field_size:
+                        break
                     self.payout_structure[int(
                         row['Place']) - 1] = float(row['Payout'].split('.')[0].replace(',', ''))
         # print(self.payout_structure)
@@ -243,6 +257,8 @@ class NBA_GPP_Simulator:
             reader = csv.DictReader(file)
             for row in reader:
                 player_name = row['Name'].replace('-', '#')
+                if float(row['Fpts']) < self.projection_minimum:
+                    continue
                 self.player_dict[player_name] = {'Fpts': 0, 'Position': [
                 ], 'ID': 0, 'Salary': 0, 'StdDev': 0, 'Ceiling': 0, 'Ownership': 0.1, 'In Lineup': False}
                 self.player_dict[player_name]['Fpts'] = float(row['Fpts'])
@@ -333,12 +349,12 @@ class NBA_GPP_Simulator:
                         '-', '#'), row['PF2'].split(':')[1].replace('-', '#'),
                         row['C'].split(':')[1].replace('-', '#')]
                     self.field_lineups[i] = {
-                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes': 0, 'Type': 'opto'}
+                        'Lineup': lineup, 'Wins': 0, 'Top10': 0, 'ROI': 0, 'Cashes':0, 'Type': 'opto'}
                     i += 1
 
     @staticmethod
-    def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections):
-        # new random seed for each lineup (without this there is a ton of dupes)
+    def generate_lineups(lu_num, names, in_lineup, pos_matrix, ownership, salary_floor,salary_ceiling, optimal_score, salaries, projections, max_pct_off_optimal):
+        #new random seed for each lineup (without this there is a ton of dupes)
         np.random.seed(lu_num)
         lus = {}
         # make sure nobody is already showing up in a lineup
@@ -369,7 +385,7 @@ class NBA_GPP_Simulator:
             if (salary >= salary_floor and salary <= salary_ceiling):
                 # Must have a reasonable projection (within 60% of optimal) **people make a lot of bad lineups
                 reasonable_projection = optimal_score - \
-                    (0.4*optimal_score)
+                    (max_pct_off_optimal*optimal_score)
                 if proj >= reasonable_projection:
                     reject = False
                     lus[lu_num] = {
@@ -378,69 +394,67 @@ class NBA_GPP_Simulator:
 
     def generate_field_lineups(self):
         diff = self.field_size - len(self.field_lineups)
-        print('Generating ' + str(diff) + ' lineups.')
-        names = list(self.player_dict.keys())
-        in_lineup = np.zeros(shape=len(names))
-        i = 0
-        ownership = np.array(
-            [self.player_dict[player_name]['Ownership']/100 for player_name in names])
-        salaries = np.array([self.player_dict[player_name]['Salary']
-                            for player_name in names])
-        projections = np.array(
-            [self.player_dict[player_name]['Fpts'] for player_name in names])
-        positions = []
-        for pos in self.roster_construction:
-            pos_list = []
-            own = []
-            for player_name in names:
-                if pos in self.player_dict[player_name]['Position']:
-                    pos_list.append(1)
-                else:
-                    pos_list.append(0)
-            i += 1
-            positions.append(np.array(pos_list))
-        pos_matrix = np.array(positions)
-        names = np.array(names)
-        optimal_score = self.optimal_score
-        # anecdotally made the most sense when looking at previous contests
-        salary_floor = self.salary - 2500
-        salary_ceiling = self.salary
-        problems = []
-        # creating tuples of the above np arrays plus which lineup number we are going to create
-        for i in range(diff):
-            lu_tuple = (i, names, in_lineup, pos_matrix, ownership, salary_floor,
-                        salary_ceiling, optimal_score, salaries, projections)
-            problems.append(lu_tuple)
-        start_time = time.time()
-        with mp.Pool() as pool:
-            output = pool.starmap(self.generate_lineups, problems)
-            print('number of running processes =',
-                  pool.__dict__['_processes']
-                  if (pool.__dict__['_state']).upper() == 'RUN'
-                  else None
-                  )
-            pool.close()
-            pool.join()
-        if len(self.field_lineups) == 0:
-            new_keys = list(range(0, self.field_size))
+        if diff <= 0:
+            print('supplied lineups >= contest field size. only retrieving the first ' + str(self.field_size) +' lineups')
         else:
-            new_keys = list(
-                range(max(self.field_lineups.keys())+1, self.field_size))
-        nk = new_keys[0]
-        for i, o in enumerate(output):
-            if nk in self.field_lineups.keys():
-                print('bad lineups dict, please check dk_data files')
-            self.field_lineups[nk] = o[i]
-            nk += 1
-        end_time = time.time()
-        print('lineups took ' + str(end_time-start_time) + ' seconds')
-        print(str(diff) + ' field lineups successfully generated')
-
+            print('Generating ' + str(diff) + ' lineups.')
+            names = list(self.player_dict.keys())
+            in_lineup = np.zeros(shape=len(names))
+            i=0
+            ownership = np.array([self.player_dict[player_name]['Ownership']/100 for player_name in names])
+            salaries = np.array([self.player_dict[player_name]['Salary'] for player_name in names])
+            projections = np.array([self.player_dict[player_name]['Fpts'] for player_name in names])
+            positions = []
+            for pos in self.roster_construction:
+                pos_list = []
+                own = []
+                for player_name in names:
+                    if pos in self.player_dict[player_name]['Position']:
+                        pos_list.append(1)
+                    else:
+                        pos_list.append(0)
+                i+=1
+                positions.append(np.array(pos_list))
+            pos_matrix = np.array(positions)
+            names = np.array(names)
+            optimal_score = self.optimal_score
+            salary_floor = self.min_lineup_salary #anecdotally made the most sense when looking at previous contests
+            salary_ceiling = self.salary
+            max_pct_off_optimal = self.max_pct_off_optimal
+            problems = []
+            #creating tuples of the above np arrays plus which lineup number we are going to create
+            for i in range(diff):
+                lu_tuple = (i, names, in_lineup, pos_matrix,ownership, salary_floor, salary_ceiling, optimal_score, salaries, projections,max_pct_off_optimal)
+                problems.append(lu_tuple)
+            start_time = time.time()
+            with mp.Pool() as pool:
+                output = pool.starmap(self.generate_lineups, problems)
+                print('number of running processes =',
+            pool.__dict__['_processes']
+            if (pool.__dict__['_state']).upper() == 'RUN'
+            else None
+            )
+                pool.close()
+                pool.join()
+            if len(self.field_lineups) == 0:
+                new_keys = list(range(0,self.field_size))
+            else:
+                new_keys = list(range(max(self.field_lineups.keys())+1,self.field_size))
+            nk = new_keys[0]
+            for i,o in enumerate(output):
+                if nk in self.field_lineups.keys():
+                    print('bad lineups dict, please check dk_data files')
+                self.field_lineups[nk] = o[i]      
+                nk+=1
+            end_time = time.time()
+            print('lineups took ' + str(end_time-start_time) + ' seconds')
+            print(str(diff) + ' field lineups successfully generated')
+        
     def run_tournament_simulation(self):
         print('Running ' + str(self.num_iterations) + ' simulations')
         start_time = time.time()
         temp_fpts_dict = {p: np.random.normal(
-            s['Fpts'], s['StdDev'], size=self.num_iterations) for p, s in self.player_dict.items()}
+            s['Fpts'], s['StdDev']* self.randomness_amount / 100, size=self.num_iterations) for p, s in self.player_dict.items()}
         # generate arrays for every sim result for each player in the lineup and sum
         fpts_array = np.zeros(shape=(self.field_size, self.num_iterations))
         # converting payout structure into an np friendly format, could probably just do this in the load contest function
