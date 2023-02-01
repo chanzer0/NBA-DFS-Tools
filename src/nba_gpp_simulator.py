@@ -70,6 +70,8 @@ class NBA_GPP_Simulator:
             print('Contest payout structure loaded.')
         else:
             self.field_size = int(field_size)
+            self.payout_structure = {0: 0.0}
+            self.entry_fee = 0
         self.num_iterations = int(num_iterations)
         self.get_optimal()
         if self.use_lineup_input:
