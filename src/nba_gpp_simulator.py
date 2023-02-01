@@ -459,9 +459,11 @@ class NBA_GPP_Simulator:
         fpts_array = np.zeros(shape=(self.field_size, self.num_iterations))
         # converting payout structure into an np friendly format, could probably just do this in the load contest function
         payout_array = np.array(list(self.payout_structure.values()))
+        #subtract entry fee
+        payout_array = payout_array-self.entry_fee
         l_array = np.full(shape=self.field_size -
                           len(payout_array), fill_value=-self.entry_fee)
-        #payout_array = np.concatenate((payout_array, l_array))
+        payout_array = np.concatenate((payout_array, l_array))
         for index, values in self.field_lineups.items():
             fpts_sim = sum([temp_fpts_dict[player]
                             for player in values['Lineup']])
@@ -469,11 +471,9 @@ class NBA_GPP_Simulator:
             fpts_array[index] = fpts_sim
         ranks = np.argsort(fpts_array, axis=0)[::-1]
         # count wins, top 10s vectorized
-        lus = list(self.field_lineups.keys())
         wins, win_counts = np.unique(ranks[0, :], return_counts=True)
         t10, t10_counts = np.unique(ranks[0:9:], return_counts=True)
-        cashes, cash_counts = np.unique(
-            ranks[:len(payout_array)], return_counts=True)
+        roi = payout_array[np.argsort(ranks, axis=0)].sum(axis=1)
         # summing up ach lineup, probably a way to v)ectorize this too (maybe just turning the field dict into an array too)
         for idx in self.field_lineups.keys():
             # Winning
@@ -486,13 +486,8 @@ class NBA_GPP_Simulator:
                     t10 == idx)][0]
             # can't figure out how to get roi for each lineup index without iterating and iterating is slow
             if self.use_contest_data:
-                if idx in cashes:
-                    self.field_lineups[idx]['Cashes'] += cash_counts[np.where(
-                        cashes == idx)][0]
                 #    self.field_lineups[idx]['ROI'] -= (loss_counts[np.where(losses==idx)][0])*self.entry_fee
-                #ind = np.argwhere(ranks==idx)
-                #roi = np.sum(payout_array[ind[:,0]])
-                #self.field_lineups[idx]['ROI'] += roi
+                self.field_lineups[idx]['ROI'] += roi[idx]
         end_time = time.time()
         diff = end_time-start_time
         print(str(self.num_iterations) +
@@ -517,7 +512,8 @@ class NBA_GPP_Simulator:
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee /
                                   self.num_iterations * 100, 2)
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}%,{},{}%,{}'.format(
+                    roi_round = round(x['ROI']/self.num_iterations, 2)
+                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{}%,{},${},{}'.format(
                         x['Lineup'][0].replace(
                             '#', '-'), self.player_dict[x['Lineup'][0].replace('-', '#')]['ID'],
                         x['Lineup'][1].replace(
@@ -534,7 +530,7 @@ class NBA_GPP_Simulator:
                             '#', '-'), self.player_dict[x['Lineup'][6].replace('-', '#')]['ID'],
                         x['Lineup'][7].replace(
                             '#', '-'), self.player_dict[x['Lineup'][7].replace('-', '#')]['ID'],
-                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, cash_p, lu_type
+                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, roi_round, lu_type
                     )
                 else:
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{}%,{}%,{},{}%,{}'.format(
@@ -560,7 +556,8 @@ class NBA_GPP_Simulator:
                 if self.use_contest_data:
                     roi_p = round(x['ROI']/self.entry_fee /
                                   self.num_iterations * 100, 2)
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}%,{},{}%,{}'.format(
+                    roi_round = round(x['ROI']/self.num_iterations, 2)
+                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{}%,{},${},{}'.format(
                         self.player_dict[x['Lineup'][0].replace(
                             '-', '#')]['ID'], x['Lineup'][0].replace('#', '-'),
                         self.player_dict[x['Lineup'][1].replace(
@@ -579,7 +576,7 @@ class NBA_GPP_Simulator:
                             '-', '#')]['ID'], x['Lineup'][7].replace('#', '-'),
                         self.player_dict[x['Lineup'][8].replace(
                             '-', '#')]['ID'], x['Lineup'][8].replace('#', '-'),
-                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, cash_p, lu_type
+                        fpts_p, ceil_p, salary, win_p, top10_p, roi_p, own_p, roi_round, lu_type
                     )
                 else:
                     lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{}%,{}%,{},{}%,{}'.format(
@@ -611,14 +608,14 @@ class NBA_GPP_Simulator:
             if self.site == 'dk':
                 if self.use_contest_data:
                     f.write(
-                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product, Cash %,Type\n')
+                        'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product, Avg. Return,Type\n')
                 else:
                     f.write(
                         'PG,SG,SF,PF,C,G,F,UTIL,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product,Cash %,Type\n')
             elif self.site == 'fd':
                 if self.use_contest_data:
                     f.write(
-                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product,Cash %,Type\n')
+                        'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,ROI%,Proj. Own. Product, Avg. Return,Type\n')
                 else:
                     f.write(
                         'PG,PG,SG,SG,SF,SF,PF,PF,C,Fpts Proj,Ceiling,Salary,Win %,Top 10%,Proj. Own. Product,Cash %,Type\n')
@@ -629,23 +626,25 @@ class NBA_GPP_Simulator:
         out_path = os.path.join(os.path.dirname(
             __file__), '../output/{}_gpp_sim_player_exposure_{}_{}.csv'.format(self.site, self.field_size, self.num_iterations))
         with open(out_path, 'w') as f:
-            f.write('Player,Win%,Top10%,Sim. Own%,Proj. Own%\n')
+            f.write('Player,Win%,Top10%,Sim. Own%,Proj. Own%,Avg. Return\n')
             unique_players = {}
             for val in self.field_lineups.values():
                 for player in val['Lineup']:
                     if player not in unique_players:
                         unique_players[player] = {
-                            'Wins': val['Wins'], 'Top10': val['Top10'], 'In': 1}
+                            'Wins': val['Wins'], 'Top10': val['Top10'], 'In': 1, 'ROI':val['ROI']}
                     else:
                         unique_players[player]['Wins'] = unique_players[player]['Wins'] + val['Wins']
                         unique_players[player]['Top10'] = unique_players[player]['Top10'] + val['Top10']
                         unique_players[player]['In'] = unique_players[player]['In'] + 1
+                        unique_players[player]['ROI'] = unique_players[player]['ROI'] + val['ROI']
 
             for player, data in unique_players.items():
                 field_p = round(data['In']/self.field_size * 100, 2)
                 win_p = round(data['Wins']/self.num_iterations * 100, 2)
                 top10_p = round(
                     data['Top10']/self.num_iterations / 10 * 100, 2)
+                roi_p = round(data['ROI']/data['In']/self.num_iterations, 2)
                 proj_own = self.player_dict[player]['Ownership']
-                f.write('{},{}%,{}%,{}%,{}%\n'.format(player.replace(
-                    '#', '-'), win_p, top10_p, field_p, proj_own))
+                f.write('{},{}%,{}%,{}%,{}%,${}\n'.format(player.replace(
+                    '#', '-'), win_p, top10_p, field_p, proj_own, roi_p))
