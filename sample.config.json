@@ -1,0 +1,49 @@
+{
+    "projection_path": "projections.csv",
+    "ownership_path": "ownership.csv",
+    "player_path": "player_ids.csv",
+    "boom_bust_path": "boom_bust.csv",
+    "late_swap_path": "live_lineups.csv",
+    "contest_structure_path": "contest_structure.csv",
+    "at_most": {
+        "1": [
+            ["Bam Adebayo", "Dewayne Dedmon"],
+            ["Josh Giddey", "Shai Gilgeous-Alexander", "Kenrich Williams"]
+        ],
+        "2": [["Jaylen Brown", "Jayson Tatum", "Marcus Smart", "Al Horford"]]
+    },
+    "at_least": {
+        "1": [
+            [
+                "Giannis Antetokounmpo",
+                "Stephen Curry",
+                "Shai Gilgeous-Alexander"
+            ],
+            ["Dejounte Murray", "Bam Adebayo", "Bobby Portis"]
+        ],
+        "2": [
+            [
+                "Devin Booker",
+                "Terry Rozier",
+                "Kyle Lowry",
+                "Paul George",
+                "Jaden Ivey"
+            ]
+        ]
+    },
+    "matchup_limits": {
+        "SAC@IND": 3
+    },
+    "matchup_at_least": {
+        "DAL@HOU": 2
+    },
+    "team_limits": {
+        "DAL": 2,
+        "WAS": 4
+    },
+    "global_team_limit": 5,
+    "projection_minimum": 15,
+    "randomness": 50,
+    "gpp_sim_reasonable_projection_threshold_percentage": 60,
+    "gpp_sim_reasonable_salary_threshold_percentage": 85
+}

@@ -76,10 +76,8 @@ In the base directory, you will find `sample.config.json`, which has a few templ
 The structure for the config is as follows:
 
 ```
-"projection_path": "projections.csv", // This is where projections are loaded from
-"ownership_path": "ownership.csv", // This is where ownership is loaded from
+"projection_path": "projections.csv", // This is where projections are loaded from, columns are: Name,Position,Team,Minutes,Salary,Fpts,own%,stddev,fieldFpts (Case insensitive)
 "player_path": "player_ids.csv", // This is where player ids are loaded from
-"boom_bust_path": "boom_bust.csv", // This is where boom/bust data is loaded from
 "late_swap_path": "live_lineups.csv", // This is where late swap lineups are loaded from
 "contest_structure_path": "contest_structure.csv", // This is where GPP sim tournament strucure is loaded from
 "at_least": {
