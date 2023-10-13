@@ -81,7 +81,7 @@ class NBA_Optimizer:
         self.randomness_amount = float(self.config["randomness"])
         self.matchup_limits = self.config["matchup_limits"]
         self.matchup_at_least = self.config["matchup_at_least"]
-        self.min_salary = int(self.config["min_salary"])
+        self.min_salary = int(self.config["min_lineup_salary"])
 
     # Load projections from file
     def load_projections(self, path):
