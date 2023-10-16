@@ -22,6 +22,7 @@ class NBA_Optimizer:
     team_limits = {}
     matchup_limits = {}
     matchup_at_least = {}
+    matchup_list = []
     global_team_limit = None
     projection_minimum = None
     randomness_amount = 0
@@ -62,16 +63,22 @@ class NBA_Optimizer:
                 player_name = row[name_key].replace('-', '#')
                 team = row['TeamAbbrev'] if self.site == 'dk' else row['Team']
                 position = row['Position']
+                
                 if (player_name, position, team) in self.player_dict:
                     if self.site == 'dk':
                         self.player_dict[(player_name, position, team)]['ID'] = int(row['ID'])
                         self.player_dict[(player_name, position, team)]['Matchup'] = row['Game Info'].split(' ')[0]
+                        if row['Game Info'].split(' ')[0] not in self.matchup_list:
+                            self.matchup_list.append(row['Game Info'].split(' ')[0])
                         self.player_dict[(player_name, position, team)]['GameTime'] = ' '.join(row['Game Info'].split()[1:])
+                        self.player_dict[(player_name, position, team)]['GameTime'] = datetime.datetime.strptime(self.player_dict[(player_name, position, team)]['GameTime'][:-3], '%m/%d/%Y %I:%M%p')
                     else:
-                        print(row)
                         self.player_dict[(player_name, position, team)]['ID'] = row['Id'].replace('-', '#')
                         self.player_dict[(player_name, position, team)]['Matchup'] = row['Game']
+                        if row['Game'] not in self.matchup_list:
+                            self.matchup_list.append(row['Game'])
         
+                
     def load_rules(self):
         self.at_most = self.config["at_most"]
         self.at_least = self.config["at_least"]
@@ -114,14 +121,12 @@ class NBA_Optimizer:
 
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
-        for (player, pos_str, team) in self.player_dict:
-            print((player, pos_str, team), self.player_dict[(player, pos_str, team)])
-        lp_variables = {
-            self.player_dict[(player, pos_str, team)]["ID"]: plp.LpVariable(
-                str(self.player_dict[(player, pos_str, team)]["ID"]), cat="Binary"
-            )
-            for (player, pos_str, team) in self.player_dict
-        }
+        # Create a binary decision variable for each player for each of their positions
+        lp_variables = {}
+        for player, attributes in self.player_dict.items():
+            player_id = attributes['ID']
+            for pos in attributes['Position']:
+                lp_variables[(player, pos, player_id)] = plp.LpVariable(name=f"{player}_{pos}_{player_id}", cat=plp.LpBinary)
         
         
         # set the objective - maximize fpts & set randomness amount from config
@@ -129,24 +134,26 @@ class NBA_Optimizer:
             self.problem += (
                 plp.lpSum(
                     np.random.normal(
-                        self.player_dict[(player, pos_str, team)]["Fpts"],
+                        self.player_dict[player]["Fpts"],
                         (
-                            self.player_dict[(player, pos_str, team)]["StdDev"]
+                            self.player_dict[player]["StdDev"]
                             * self.randomness_amount
                             / 100
                         ),
                     )
-                    * lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                    for (player, pos_str, team) in self.player_dict
+                    * lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position']
                 ),
                 "Objective",
             )
         else:
             self.problem += (
                 plp.lpSum(
-                    self.player_dict[(player, pos_str, team)]["Fpts"]
-                    * lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                    for (player, pos_str, team) in self.player_dict
+                    self.player_dict[player]["Fpts"]
+                    * lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position']
                 ),
                 "Objective",
             )
@@ -159,73 +166,89 @@ class NBA_Optimizer:
         if self.projection_minimum is not None:
             min_salary = self.min_salary
         
+        # Maximum Salary Constraint
         self.problem += (
             plp.lpSum(
-                self.player_dict[(player, pos_str, team)]["Salary"]
-                * lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                for (player, pos_str, team) in self.player_dict
+                self.player_dict[player]["Salary"]
+                * lp_variables[(player, pos, attributes['ID'])]
+                for player, attributes in self.player_dict.items()
+                for pos in attributes['Position']
             )
             <= max_salary,
             "Max Salary",
         )
+
+        # Minimum Salary Constraint
         self.problem += (
             plp.lpSum(
-                self.player_dict[(player, pos_str, team)]["Salary"]
-                * lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                for (player, pos_str, team) in self.player_dict
+                self.player_dict[player]["Salary"]
+                * lp_variables[(player, pos, attributes['ID'])]
+                for player, attributes in self.player_dict.items()
+                for pos in attributes['Position']
             )
             >= min_salary,
             "Min Salary",
         )
+        
+        # Must not play all 8 or 9 players from the same team (8 if dk, 9 if fd)
+        for matchup in self.matchup_list:
+            self.problem += (
+                plp.lpSum(
+                    lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position'] if attributes['Matchup'] == matchup
+                )
+                <= 8 if self.site == 'dk' else 9,
+                f"Must not play all players from same matchup {matchup}",
+            )
+
 
         # Address limit rules if any
         for limit, groups in self.at_least.items():
             for group in groups:
-                tuple_name_list = []
-                for key, value in self.player_dict.items():
-                    if value["Name"] in group:
-                        tuple_name_list.append(key)
-
                 self.problem += (
                     plp.lpSum(
-                        lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                        for (player, pos_str, team) in tuple_name_list
+                        lp_variables[(player, pos, attributes['ID'])]
+                        for player, attributes in self.player_dict.items()
+                        for pos in attributes['Position'] if attributes['Name'] in group
                     )
                     >= int(limit),
-                    f"At least {limit} players {tuple_name_list}",
+                    f"At least {limit} players {group}",
                 )
 
         for limit, groups in self.at_most.items():
             for group in groups:
-                tuple_name_list = []
-                for key, value in self.player_dict.items():
-                    if value["Name"] in group:
-                        tuple_name_list.append(key)
-
                 self.problem += (
                     plp.lpSum(
-                        lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                        for (player, pos_str, team) in tuple_name_list
+                        lp_variables[(player, pos, attributes['ID'])]
+                        for player, attributes in self.player_dict.items()
+                        for pos in attributes['Position'] if attributes['Name'] in group
                     )
                     <= int(limit),
-                    f"At most {limit} players {tuple_name_list}",
+                    f"At most {limit} players {group}",
                 )
 
         for matchup, limit in self.matchup_limits.items():
-            tuple_name_list = []
-            for key, value in self.player_dict.items():
-                if value["Matchup"] == matchup:
-                    tuple_name_list.append(key)
-                    
-            self.problem += plp.lpSum(lp_variables[self.player_dict[(player, pos_str, team)]["ID"]] for (player, pos_str, team) in tuple_name_list) <= int(limit), "At most {} players from {}".format(limit, matchup)
+            self.problem += (
+                plp.lpSum(
+                    lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position'] if attributes['Matchup'] == matchup
+                )
+                <= int(limit),
+                "At most {} players from {}".format(limit, matchup)
+            )
 
         for matchup, limit in self.matchup_at_least.items():
-            tuple_name_list = []
-            for key, value in self.player_dict.items():
-                if value["Matchup"] == matchup:
-                    tuple_name_list.append(key)
-                    
-            self.problem += plp.lpSum(lp_variables[self.player_dict[(player, pos_str, team)]["ID"]] for (player, pos_str, team) in tuple_name_list) >= int(limit), "At least {} players from {}".format(limit, matchup)
+            self.problem += (
+                plp.lpSum(
+                    lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position'] if attributes['Matchup'] == matchup
+                )
+                >= int(limit),
+                "At least {} players from {}".format(limit, matchup)
+            )
 
         # Address team limits
         for teamIdent, limit in self.team_limits.items():
@@ -234,128 +257,102 @@ class NBA_Optimizer:
             
         if self.global_team_limit is not None:
             for teamIdent in self.team_list:
-                self.problem += plp.lpSum(lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                                          for (player, pos_str, team) in self.player_dict if team == teamIdent) <= int(self.global_team_limit), "Global team limit - at most {} players from {}".format(self.global_team_limit, teamIdent)
+                self.problem += (
+                    plp.lpSum(
+                        lp_variables[(player, pos, attributes['ID'])]
+                        for player, attributes in self.player_dict.items()
+                        for pos in attributes['Position']
+                        if attributes["Team"] == teamIdent
+                    )
+                    <= int(self.global_team_limit),
+                    f"Global team limit - at most {self.global_team_limit} players from {teamIdent}",
+                )
 
         if self.site == 'dk':
-            # Need at least 1 point guard, can have up to 3 if utilizing G and UTIL slots
-            point_guards = [player for player in self.player_dict if 'PG' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards) <= 3
-            
-            # Need at least 1 shooting guard, can have up to 3 if utilizing G and UTIL slots
-            shooting_guards = [player for player in self.player_dict if 'SG' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in shooting_guards) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in shooting_guards) <= 3
-            
-            # Need at least 1 small forward, can have up to 3 if utilizing F and UTIL slots
-            small_forwards = [player for player in self.player_dict if 'SF' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in small_forwards) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in small_forwards) <= 3
-            
-            # Need at least 1 power forward, can have up to 3 if utilizing F and UTIL slots
-            power_forwards = [player for player in self.player_dict if 'PF' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in power_forwards) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in power_forwards) <= 3
-            
-            # Need at least 1 center, can have up to 2 if utilizing C and UTIL slots
-            centers = [player for player in self.player_dict if 'C' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in centers) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in centers) <= 2
-            
-            # Need at least 3 guards (PG,SG,G)
-            guards = [player for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'SG' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in guards) >= 3
-            
-            # Need at least 3 forwards (SF,PF,F)
-            forwards = [player for player in self.player_dict if 'SF' in self.player_dict[player]['Position'] or 'PF' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in forwards) >= 3
-            
-            # Max 4 of PG and C single-eligbility players to prevent rare edge case where you can end up with 3 PG and 2 C, even though this build is infeasible
-            point_guards_and_centers = [player for player in self.player_dict if 'PG' in self.player_dict[player]['Position'] or 'C' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards_and_centers) <= 4
-            
-            # Can only roster 8 total players
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in self.player_dict) == 8
+            # Constraints for specific positions
+            for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
+                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+
+            # Constraint to ensure each player is only selected once
+            for player in self.player_dict:
+                player_id = self.player_dict[player]['ID']
+                self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
+
+            # Handle the G, F, and UTIL spots
+            guards = ['PG', 'SG']
+            forwards = ['SF', 'PF']
+
+            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in guards if pos in attributes['Position']) >= 3, f"Must have at least 3 guards"
+            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in forwards if pos in attributes['Position']) >= 3, f"Must have at least 3 forwards"
+
+            # UTIL can be from any position. But you don't really need a separate constraint for UTIL.
+            # It's automatically handled because you're ensuring every other position is filled and each player is selected at most once. 
+            # If you've correctly handled the other positions, UTIL will be the remaining player.
+
+            # Total players constraint
+            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 8, f"Must have 8 players"
         else:
-            # PG MPE
-            point_guards = [player for player in self.player_dict if 'PG' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards) >= 2
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards) <= 5
+           # Constraints for specific positions
+            for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
+                if pos == 'C':
+                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+                else:
+                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 2, f"Must have at least 2 {pos}"
+
+
+            # Constraint to ensure each player is only selected once
+            for player in self.player_dict:
+                player_id = self.player_dict[player]['ID']
+                self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
+
             
-            # SG MPE
-            shooting_guards = [player for player in self.player_dict if 'SG' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in shooting_guards) >= 2
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in shooting_guards) <= 5
-            
-            # SF MPE
-            small_forwards = [player for player in self.player_dict if 'SF' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in small_forwards) >= 2
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in small_forwards) <= 5
-            
-            # PF MPE
-            power_forwards = [player for player in self.player_dict if 'PF' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in power_forwards) >= 2
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in power_forwards) <= 5
-            
-            # C MPE
-            centers = [player for player in self.player_dict if 'C' in self.player_dict[player]['Position']]
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in centers) >= 1
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in centers) <= 3
-
-            # PG Alignment
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in point_guards) <= 2
-
-            # SG Alignment
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in shooting_guards) <= 2
-
-            # SF Alignment
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in small_forwards) <= 2
-
-            # PF Alignment
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in power_forwards) <= 2
-
-            # C Alignment
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]] for player in centers) <= 1
-
-            # Can only roster 9 total players
-            self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]]for player in self.player_dict) == 9
-            
-            # Max 4 per team
-            for team in self.team_list:
-                self.problem += plp.lpSum(lp_variables[self.player_dict[player]["ID"]]
-                                          for player in self.player_dict if self.player_dict[player]['Team'] == team) <= 4
+            # Total players constraint
+            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 9, f"Must have 9 players"
 
         # Crunch!
         for i in range(self.num_lineups):
+            self.problem.writeLP("problem.lp")
             try:
                 self.problem.solve(plp.PULP_CBC_CMD(msg=0))
             except plp.PulpSolverError:
                 print('Infeasibility reached - only generated {} lineups out of {}. Continuing with export.'.format(
-                    len(self.num_lineups), self.num_lineups))
+                    len(self.lineups), self.num_lineups))
+                break
+                
+            # Check for infeasibility
+            if plp.LpStatus[self.problem.status] != 'Optimal':
+                print('Infeasibility reached - only generated {} lineups out of {}. Continuing with export.'.format(
+                    len(self.lineups), self.num_lineups))
+                break
 
             # Get the lineup and add it to our list
-            player_ids = [
-                player for player in lp_variables if lp_variables[player].varValue != 0
-            ]
-            players = []
-            for key, value in self.player_dict.items():
-                if value["ID"] in player_ids:
-                    players.append(key)
+            selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
+            # print(selected_vars)
 
-            fpts_used = self.problem.objective.value()
-            print(fpts_used, players)
-            self.lineups.append((fpts_used, players))
+            selected_players_info = [var[0] for var in selected_vars]
+
+            players = []
+            for key in self.player_dict.keys():
+                if key in selected_players_info:
+                    players.append(key)
+                      
+            # fpts_used = self.problem.objective.value()
+            # print(fpts_used, players)
+            self.lineups.append(players)
             
             if i % 100 == 0:
                 print(i)
 
+            
             # Ensure this lineup isn't picked again
+            unique_constraints = []
+            for player_key in players:
+                player_id = self.player_dict[player_key]['ID']
+                for position in self.player_dict[player_key]['Position']:
+                    unique_constraints.append(lp_variables[(player_key, position, player_id)])
+
             self.problem += (
-                plp.lpSum(
-                    lp_variables[self.player_dict[player]["ID"]] for player in players
-                )
-                <= len(players) - self.num_uniques,
+                plp.lpSum(unique_constraints) <= len(players) - self.num_uniques,
                 f"Lineup {i}",
             )
 
@@ -364,39 +361,37 @@ class NBA_Optimizer:
                 self.problem += (
                     plp.lpSum(
                         np.random.normal(
-                            self.player_dict[(player, pos_str, team)]["Fpts"],
+                            self.player_dict[player]["Fpts"],
                             (
-                                self.player_dict[(player, pos_str, team)]["StdDev"]
+                                self.player_dict[player]["StdDev"]
                                 * self.randomness_amount
                                 / 100
                             ),
                         )
-                        * lp_variables[self.player_dict[(player, pos_str, team)]["ID"]]
-                        for (player, pos_str, team) in self.player_dict
+                        * lp_variables[(player, pos, attributes['ID'])]
+                        for player, attributes in self.player_dict.items()
+                        for pos in attributes['Position']
                     ),
                     "Objective",
                 )
 
     def output(self):
         print('Lineups done generating. Outputting.')
-       
+        
         sorted_lineups = []
-        for fpts, lineup in self.lineups:
-            print(lineup)
+        for lineup in self.lineups:
             sorted_lineup = self.sort_lineup_dk(lineup)
-            print(sorted_lineup)
-            late_player_adjusted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup)
-            print(late_player_adjusted_lineup)
+            if self.site == 'dk':
+                sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup)
             sorted_lineups.append(sorted_lineup)
-
+         
         out_path = os.path.join(os.path.dirname(
-            __file__), '../output/{}_optimal_lineups.csv'.format(self.site))
+            __file__), '../output/{}_optimal_lineups_{}.csv'.format(self.site, datetime.datetime.now().strftime('%Y%m%d_%H%M%S')))
         with open(out_path, 'w') as f:
             if self.site == 'dk':
                 f.write(
                     'PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
-                for fpts, x in self.lineups.items():
-                    # print(id_sum, tple)
+                for x in sorted_lineups:
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(
@@ -408,24 +403,15 @@ class NBA_Optimizer:
                                ['Minutes'] for player in x])
                     stddev = sum(
                         [self.player_dict[player]['StdDev'] for player in x])
-                    # print(sum(self.player_dict[player]['Ownership'] for player in x))
                     lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{}'.format(
-                        x[0].replace(
-                            '#', '-'), self.player_dict[x[0]]['RealID'],
-                        x[1].replace(
-                            '#', '-'), self.player_dict[x[1]]['RealID'],
-                        x[2].replace(
-                            '#', '-'), self.player_dict[x[2]]['RealID'],
-                        x[3].replace(
-                            '#', '-'), self.player_dict[x[3]]['RealID'],
-                        x[4].replace(
-                            '#', '-'), self.player_dict[x[4]]['RealID'],
-                        x[5].replace(
-                            '#', '-'), self.player_dict[x[5]]['RealID'],
-                        x[6].replace(
-                            '#', '-'), self.player_dict[x[6]]['RealID'],
-                        x[7].replace(
-                            '#', '-'), self.player_dict[x[7]]['RealID'],
+                        self.player_dict[x[0]]['Name'], self.player_dict[x[0]]['ID'],
+                        self.player_dict[x[1]]['Name'], self.player_dict[x[1]]['ID'],
+                        self.player_dict[x[2]]['Name'], self.player_dict[x[2]]['ID'],
+                        self.player_dict[x[3]]['Name'], self.player_dict[x[3]]['ID'],
+                        self.player_dict[x[4]]['Name'], self.player_dict[x[4]]['ID'],
+                        self.player_dict[x[5]]['Name'], self.player_dict[x[5]]['ID'],
+                        self.player_dict[x[6]]['Name'], self.player_dict[x[6]]['ID'],
+                        self.player_dict[x[7]]['Name'], self.player_dict[x[7]]['ID'],
                         salary, round(
                             fpts_p, 2), own_p, own_s, mins, stddev
                     )
@@ -433,7 +419,7 @@ class NBA_Optimizer:
             else:
                 f.write(
                     'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
-                for fpts, x in self.lineups.items():
+                for x in sorted_lineups:
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
                     fpts_p = sum(
@@ -446,24 +432,15 @@ class NBA_Optimizer:
                     stddev = sum(
                         [self.player_dict[player]['StdDev'] for player in x])
                     lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{}'.format(
-                        self.player_dict[x[0]]['RealID'], x[0].replace(
-                            '#', '-'),
-                        self.player_dict[x[1]]['RealID'], x[1].replace(
-                            '#', '-'),
-                        self.player_dict[x[2]]['RealID'], x[2].replace(
-                            '#', '-'),
-                        self.player_dict[x[3]]['RealID'], x[3].replace(
-                            '#', '-'),
-                        self.player_dict[x[4]]['RealID'], x[4].replace(
-                            '#', '-'),
-                        self.player_dict[x[5]]['RealID'], x[5].replace(
-                            '#', '-'),
-                        self.player_dict[x[6]]['RealID'], x[6].replace(
-                            '#', '-'),
-                        self.player_dict[x[7]]['RealID'], x[7].replace(
-                            '#', '-'),
-                        self.player_dict[x[8]]['RealID'], x[8].replace(
-                            '#', '-'),
+                        self.player_dict[x[0]]['ID'].replace('#', '-'), self.player_dict[x[0]]['Name'],
+                        self.player_dict[x[1]]['ID'].replace('#', '-'), self.player_dict[x[1]]['Name'],
+                        self.player_dict[x[2]]['ID'].replace('#', '-'), self.player_dict[x[2]]['Name'],
+                        self.player_dict[x[3]]['ID'].replace('#', '-'), self.player_dict[x[3]]['Name'],
+                        self.player_dict[x[4]]['ID'].replace('#', '-'), self.player_dict[x[4]]['Name'],
+                        self.player_dict[x[5]]['ID'].replace('#', '-'), self.player_dict[x[5]]['Name'],
+                        self.player_dict[x[6]]['ID'].replace('#', '-'), self.player_dict[x[6]]['Name'],
+                        self.player_dict[x[7]]['ID'].replace('#', '-'), self.player_dict[x[7]]['Name'],
+                        self.player_dict[x[8]]['ID'].replace('#', '-'), self.player_dict[x[8]]['Name'],
                         salary, round(
                             fpts_p, 2), own_p, own_s, mins, stddev
                     )
@@ -474,78 +451,84 @@ class NBA_Optimizer:
     def sort_lineup_dk(self, lineup):
         order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
         sorted_lineup = [None] * 8
+        # print(lineup)
+        # Helper function to insert player to the lineup and remove from remaining list
+        def insert_and_remove(player, position):
+            sorted_lineup[order.index(position)] = player
+            lineup.remove(player)
 
-        def find_and_remove(positions):
-            for pos in positions:
-                for player in lineup:
-                    if player[1] == pos:
-                        lineup.remove(player)
-                        return player
-            return None
+        # Step 1: Fit players with single positional eligibility to their spots or fallbacks
+        for player in lineup[:]:  # Loop through a copy of lineup
+            if '/' not in player[1]:  # Single-position players
+                if sorted_lineup[order.index(player[1])] is None:
+                    insert_and_remove(player, player[1])
+                elif player[1] in ['PG', 'SG'] and sorted_lineup[order.index('G')] is None:
+                    insert_and_remove(player, 'G')
+                elif player[1] in ['SF', 'PF'] and sorted_lineup[order.index('F')] is None:
+                    insert_and_remove(player, 'F')
+                elif sorted_lineup[order.index('UTIL')] is None:
+                    insert_and_remove(player, 'UTIL')
+
+        # Step 2: Fit multi-positional players to best spots available
+        dual_positions = {
+            'PG/SG': ['PG', 'SG', 'G', 'UTIL'],
+            'SG/SF': ['SG', 'SF', 'G', 'F', 'UTIL'],
+            'SF/PF': ['SF', 'PF', 'F', 'UTIL'],
+            'PF/C': ['PF', 'C', 'UTIL'],
+            'PG/SF': ['PG', 'SF', 'G', 'F', 'UTIL'],
+        }
+        for player in lineup[:]:
+            for position in dual_positions[player[1]]:
+                if sorted_lineup[order.index(position)] is None:
+                    insert_and_remove(player, position)
+                    break
+
+        # Step 3: Fill any remaining spots with leftover players
+        for player in lineup:
+            for position in order:
+                if sorted_lineup[order.index(position)] is None:
+                    insert_and_remove(player, position)
+                    break
         
-        # Fill definite positions first
-        for index, pos in enumerate(order[:-3]):
-            player = find_and_remove([pos])
-            if player:
-                sorted_lineup[index] = player
-
-        # Fill dual positions
-        if sorted_lineup[order.index('SG')] is None:
-            sg_sf_player = find_and_remove(['SG/SF'])
-            if sg_sf_player:
-                sorted_lineup[order.index('SG')] = sg_sf_player
-
-        # Fill G and F positions
-        if sorted_lineup[order.index('G')] is None:
-            g_player = find_and_remove(['PG', 'SG'])
-            if g_player:
-                sorted_lineup[order.index('G')] = g_player
-
-        if sorted_lineup[order.index('F')] is None:
-            f_player = find_and_remove(['SF', 'PF'])
-            if f_player:
-                sorted_lineup[order.index('F')] = f_player
-
-        # Fill UTIL position
-        if sorted_lineup[order.index('UTIL')] is None and lineup:
-            util_player = lineup[0]
-            sorted_lineup[order.index('UTIL')] = util_player
-
+        # print(sorted_lineup)
+        # print('-----------------------------------')
         return sorted_lineup
-        
-    def sort_lineup_fd(self, lineup):
-        order = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
-        sorted_lineup = [None] * 9  # Total 9 players
 
-        def find_and_remove(positions):
-            for pos in positions:
-                for player in lineup:
-                    if player[1] == pos:
-                        lineup.remove(player)
-                        return player
-            return None
-        
-        # Fill the first occurrences of each position
-        for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
-            player = find_and_remove([pos])
-            if player:
-                sorted_lineup[order.index(pos)] = player
-
-        # Now, fill the second occurrences or use dual positions if available
-        for pos in ['PG', 'SG', 'SF', 'PF']:
-            index = order.index(pos) + 1  # The next position after the first occurrence
-            player = find_and_remove([pos]) or find_and_remove([f"{pos}/{order[index+1]}"])
-            if player:
-                sorted_lineup[index] = player
-
-        # Fill any remaining spots with remaining players
-        for i, player in enumerate(sorted_lineup):
-            if not player and lineup:
-                sorted_lineup[i] = lineup.pop(0)
-
-        return sorted_lineup
 
     def adjust_roster_for_late_swap_dk(self, lineup):
-       for player in lineup:
-           print(player, self.player_dict[player]['GameTime'])
-                    
+        # print(lineup)
+        sorted_lineup = list(lineup)
+
+        # A function to swap two players if the conditions are met
+        def swap_if_needed(primary_pos, flex_pos):
+            primary_player = sorted_lineup[primary_pos]
+            flex_player = sorted_lineup[flex_pos]
+
+            # Check if the primary player's game time is later than the flexible player's
+            if self.player_dict[primary_player]['GameTime'] > self.player_dict[flex_player]['GameTime']:
+                primary_positions = self.position_map[primary_pos]
+                
+                # Check if the flexible player is eligible for the primary position
+                if any(pos in primary_positions for pos in self.player_dict[flex_player]['Position']):
+                    sorted_lineup[primary_pos], sorted_lineup[flex_pos] = sorted_lineup[flex_pos], sorted_lineup[primary_pos]
+
+        # Define eligible positions for each spot on the roster
+        self.position_map = {
+            0: ['PG'],
+            1: ['SG'],
+            2: ['SF'],
+            3: ['PF'],
+            4: ['C'],
+            5: ['PG', 'SG'],
+            6: ['SF', 'PF'],
+            7: ['PG', 'SG', 'SF', 'PF', 'C']
+        }
+
+        # Check each primary position against all flexible positions
+        for i in range(5):
+            for j in range(5, 8):
+                swap_if_needed(i, j)
+
+        # print(sorted_lineup)
+        # print('-----------------------------------')
+        return sorted_lineup

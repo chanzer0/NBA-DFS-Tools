@@ -21,6 +21,12 @@ def main(arguments):
         opto = NBA_Optimizer(site, num_lineups, num_uniques)
         opto.optimize()
         opto.output()
+        
+    if process == 'swap':
+        num_uniques = arguments[3]
+        swapto = NBA_Late_Swaptimizer(site, num_uniques)
+        swapto.swaptimize()
+        swapto.output()
 
     elif process == 'sd':
         num_lineups = arguments[3]
