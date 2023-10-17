@@ -123,8 +123,8 @@ class NBA_Late_Swaptimizer:
             reader = csv.DictReader(self.lower_first(file))
             for row in reader:
                 if row['entry id'] != '' and self.site == 'dk':
-                    # current_time = datetime.datetime.now()  # get the current time
-                    current_time = datetime.datetime(2023, 10, 24, 20, 0)
+                    current_time = datetime.datetime.now()  # get the current time
+                    # current_time = datetime.datetime(2023, 10, 24, 20, 0)
                     PG_id = re.search(r"\((\d+)\)", row['pg']).group(1)
                     SG_id = re.search(r"\((\d+)\)", row['sg']).group(1)
                     SF_id = re.search(r"\((\d+)\)", row['sf']).group(1)
@@ -349,6 +349,21 @@ class NBA_Late_Swaptimizer:
                 # Total players constraint
                 self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 9, f"Must have 9 players"
 
+            # Don't dupe a lineup we already used
+            i = 0
+            for lineup, _ in self.output_lineups:
+                # Ensure this lineup isn't picked again
+                unique_constraints = []
+                for player_key in lineup:
+                    player_id = self.player_dict[player_key]['ID']
+                    for position in self.player_dict[player_key]['Position']:
+                        unique_constraints.append(lp_variables[(player_key, position, player_id)])
+
+                self.problem += (
+                    plp.lpSum(unique_constraints) <= len(lineup) - self.num_uniques,
+                    f"Lineup {i}",
+                )
+                i += 1
             
            
             try:
@@ -385,214 +400,103 @@ class NBA_Late_Swaptimizer:
        
         sorted_lineups = []
         for lineup, old_lineup in self.output_lineups:
+            # print(old_lineup)
+            # print(lineup)
             sorted_lineup = self.sort_lineup_dk(lineup, old_lineup)
-            quit()
+            print(sorted_lineup)
             if self.site == 'dk':
-                sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup)
+                sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup, old_lineup)
             sorted_lineups.append((sorted_lineup, old_lineup))
+            print(sorted_lineup)
+            print('----------------------')
 
-        print(sorted_lineup)
-        out_path = os.path.join(os.path.dirname(
-            __file__), '../output/{}_optimal_lineups_{}.csv'.format(self.site, datetime.datetime.now().strftime('%Y%m%d_%H%M%S')))
-        with open(out_path, 'w') as f:
-            if self.site == 'dk':
-                f.write(
-                    'PG,SG,SF,PF,C,G,F,UTIL,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
-                for x in sorted_lineups:
-                    salary = sum(
-                        self.player_dict[player]['Salary'] for player in x)
-                    fpts_p = sum(
-                        self.player_dict[player]['Fpts'] for player in x)
-                    own_p = np.prod(
-                        [self.player_dict[player]['Ownership'] for player in x])
-                    own_s = sum(self.player_dict[player]['Ownership'] for player in x)
-                    mins = sum([self.player_dict[player]
-                               ['Minutes'] for player in x])
-                    stddev = sum(
-                        [self.player_dict[player]['StdDev'] for player in x])
-                    lineup_str = '{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{} ({}),{},{},{},{},{},{}'.format(
-                        self.player_dict[x[0][0]]['Name'], self.player_dict[x[0]]['ID'],
-                        self.player_dict[x[1]]['Name'], self.player_dict[x[1]]['ID'],
-                        self.player_dict[x[2]]['Name'], self.player_dict[x[2]]['ID'],
-                        self.player_dict[x[3]]['Name'], self.player_dict[x[3]]['ID'],
-                        self.player_dict[x[4]]['Name'], self.player_dict[x[4]]['ID'],
-                        self.player_dict[x[5]]['Name'], self.player_dict[x[5]]['ID'],
-                        self.player_dict[x[6]]['Name'], self.player_dict[x[6]]['ID'],
-                        self.player_dict[x[7]]['Name'], self.player_dict[x[7]]['ID'],
-                        salary, round(
-                            fpts_p, 2), own_p, own_s, mins, stddev
-                    )
-                    f.write('%s\n' % lineup_str)
-            else:
-                f.write(
-                    'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
-                for x in sorted_lineups:
-                    salary = sum(
-                        self.player_dict[player]['Salary'] for player in x)
-                    fpts_p = sum(
-                        self.player_dict[player]['Fpts'] for player in x)
-                    own_p = np.prod(
-                        [self.player_dict[player]['Ownership'] for player in x])
-                    own_s = sum(self.player_dict[player]['Ownership'] for player in x)
-                    mins = sum([self.player_dict[player]
-                               ['Minutes'] for player in x])
-                    stddev = sum(
-                        [self.player_dict[player]['StdDev'] for player in x])
-                    lineup_str = '{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{}:{},{},{},{},{},{},{}'.format(
-                        self.player_dict[x[0]]['ID'].replace('#', '-'), self.player_dict[x[0]]['Name'],
-                        self.player_dict[x[1]]['ID'].replace('#', '-'), self.player_dict[x[1]]['Name'],
-                        self.player_dict[x[2]]['ID'].replace('#', '-'), self.player_dict[x[2]]['Name'],
-                        self.player_dict[x[3]]['ID'].replace('#', '-'), self.player_dict[x[3]]['Name'],
-                        self.player_dict[x[4]]['ID'].replace('#', '-'), self.player_dict[x[4]]['Name'],
-                        self.player_dict[x[5]]['ID'].replace('#', '-'), self.player_dict[x[5]]['Name'],
-                        self.player_dict[x[6]]['ID'].replace('#', '-'), self.player_dict[x[6]]['Name'],
-                        self.player_dict[x[7]]['ID'].replace('#', '-'), self.player_dict[x[7]]['Name'],
-                        self.player_dict[x[8]]['ID'].replace('#', '-'), self.player_dict[x[8]]['Name'],
-                        salary, round(
-                            fpts_p, 2), own_p, own_s, mins, stddev
-                    )
-                    f.write('%s\n' % lineup_str)
+        # print(sorted_lineups)
+        
         print('Output done.')
 
 
     def sort_lineup_dk(self, lineup, old_lineup):
-        print(old_lineup)
-        print(lineup)
-        # Step 1: Create a mapping from player's name to their positional info
-        player_to_info = {player[0]: player for player in lineup}
+        # 1. Initialize our final lineup
+        sorted_lineup = {
+            'PG': None, 'SG': None, 'SF': None, 'PF': None, 
+            'C': None, 'G': None, 'F': None, 'UTIL': None
+        }
+
+        # This will store full position and team information
+        player_info = {player: (position, team) for player, position, team in lineup}
+
+        # 2. Fill in locked players
+        for pos, player in old_lineup.items():
+            if pos.endswith('_is_locked') and player:
+                main_pos = pos.split('_is_locked')[0]
+                if old_lineup[main_pos]:
+                    player_name = old_lineup[main_pos].split(' ')[0]
+                    sorted_lineup[main_pos] = player_name
+                    # remove the locked player from the lineup list
+                    lineup = [p for p in lineup if p[0] != player_name]
+
+        # 3. Fill in the remaining players using recursion
+        def place_player(idx, current_lineup):
+            # base case: all players placed
+            if idx == len(lineup):
+                return True
+            
+            player, positions, _ = lineup[idx]
+            for pos, _ in current_lineup.items():
+                if not current_lineup[pos] and (pos in positions or pos == 'UTIL'):
+                    # place the player
+                    current_lineup[pos] = player
+                    if place_player(idx + 1, current_lineup):
+                        return True
+                    # backtrack
+                    current_lineup[pos] = None
+
+            return False
+
+        place_player(0, sorted_lineup)
+
+        # Convert the dictionary to a list of tuples
+        final_sorted_lineup = [(player, *player_info[player]) for pos, player in sorted_lineup.items() if player]
+
+        return final_sorted_lineup
+
         
-        # Defined order for positions
-        order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
-        
-        # Resultant lineup based on order
+
+    def adjust_roster_for_late_swap_dk(self, lineup, old_lineup):
         sorted_lineup = [None] * 8
-        
-        # Step 2: Check the old_lineup and fill in locked players
-        for position in order:
-            player_name = old_lineup[position].split(" (")[0]  # Extract player's name from old lineup entry
-            if old_lineup[f"{position}_is_locked"] and player_name in player_to_info:
-                sorted_lineup[order.index(position)] = player_to_info[player_name]
-        
-        # Step 3: Fill in non-locked players
-        for player, position, team in lineup:
-            if not any(item and item[0] == player for item in sorted_lineup):  # Check if player is already in sorted_lineup
-                available_slots = [pos for pos in position.split('/') if not sorted_lineup[order.index(pos)]]
-                
-                # For players with flexible positions like SG/SF, they can also fit in G
-                if any(pos in ['PG', 'SG'] for pos in position.split('/')) and not sorted_lineup[order.index('G')]:
-                    available_slots.append('G')
-                
-                # Similarly, SF/PF can fit in F
-                if any(pos in ['SF', 'PF'] for pos in position.split('/')) and not sorted_lineup[order.index('F')]:
-                    available_slots.append('F')
 
-                # If UTIL position is available
-                if 'UTIL' in order and not sorted_lineup[order.index('UTIL')]:
-                    available_slots.append('UTIL')
-                
-                for slot in available_slots:
-                    if not sorted_lineup[order.index(slot)]:  # If slot is unoccupied
-                        sorted_lineup[order.index(slot)] = (player, position, team)
-                        break
-        print(sorted_lineup)
-        return sorted_lineup
+        # A function to determine if a player at a specific position is locked
+        def is_locked(position_index):
+            position_name = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"][position_index]
+            return old_lineup[f"{position_name}_is_locked"]
 
-        
-    def sort_lineup_fd(self, lineup, old_lineup=None):
-        order = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
-        sorted_lineup = [None] * 9  # Total 9 players
+        # A function to swap two players if conditions are met
+        def attempt_swap(primary_index, flex_index, primary_eligibility):
+            if not is_locked(primary_index) and not is_locked(flex_index):
+                if self.player_dict[lineup[primary_index]]['GameTime'] > self.player_dict[lineup[flex_index]]['GameTime'] and primary_eligibility in self.player_dict[lineup[flex_index]]['Position']:
+                    sorted_lineup[primary_index], sorted_lineup[flex_index] = lineup[flex_index], lineup[primary_index]
+                else:
+                    sorted_lineup[primary_index], sorted_lineup[flex_index] = lineup[primary_index], lineup[flex_index]
 
-        def find_and_remove(positions, player_id=None):
-            for pos in positions:
-                for player in lineup:
-                    if (not player_id or player[0] == player_id) and player[1] == pos:
-                        lineup.remove(player)
-                        return player
-            return None
-        
-        # Fill in locked positions from old_lineup
-        if old_lineup:
-            for pos in order:
-                locked = getattr(old_lineup, f"{pos}_is_locked", False)
-                if locked:
-                    player_id = getattr(old_lineup, pos)
-                    # Get player from lineup based on ID and position
-                    player = find_and_remove([pos], player_id)
-                    sorted_lineup[order.index(pos)] = player
-            
-        # Fill the first occurrences of each position
-        for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
-            if sorted_lineup[order.index(pos)] is None:  # Skip if already filled from old_lineup
-                player = find_and_remove([pos])
-                if player:
-                    sorted_lineup[order.index(pos)] = player
+        # Use attempt_swap function for each position
+        attempt_swap(0, 5, 'PG')
+        attempt_swap(1, 5, 'SG')
+        attempt_swap(2, 6, 'SF')
+        attempt_swap(3, 6, 'PF')
+        attempt_swap(4, 7, 'C')
 
-        # Now, fill the second occurrences or use dual positions if available
-        for pos in ['PG', 'SG', 'SF', 'PF']:
-            index = order.index(pos) + 1  # The next position after the first occurrence
-            if sorted_lineup[index] is None:  # Skip if already filled from old_lineup
-                player = find_and_remove([pos]) or find_and_remove([f"{pos}/{order[index+1]}"])
-                if player:
-                    sorted_lineup[index] = player
-
-        # Fill any remaining spots with remaining players
-        for i, player in enumerate(sorted_lineup):
-            if not player and lineup:
-                sorted_lineup[i] = lineup.pop(0)
-
-        return sorted_lineup
-
-    def adjust_roster_for_late_swap_dk(self, lineup):
-        print(lineup)
-        sorted_lineup = [None] * 8
-            
-        # Swap PG and G spots if PG is later than G and G spot is PG eligible
-        if self.player_dict[lineup[0]]['GameTime'] > self.player_dict[lineup[5]]['GameTime'] and 'PG' in self.player_dict[lineup[5]]['Position']:
-            sorted_lineup[0] = lineup[5]
-            sorted_lineup[5] = lineup[0]
-        else:
-            sorted_lineup[0] = lineup[0]
-            sorted_lineup[5] = lineup[5]
-        
-        # Swap SG and G spots if SG is later than G and G spot is SG eligible
-        if self.player_dict[lineup[1]]['GameTime'] > self.player_dict[lineup[5]]['GameTime'] and 'SG' in self.player_dict[lineup[5]]['Position']:
-            sorted_lineup[1] = lineup[5]
-            sorted_lineup[5] = lineup[1]
-        else:
-            sorted_lineup[1] = lineup[1]
-            sorted_lineup[5] = lineup[5]
-        
-        # Swap SF and F spots if SF is later than F and F spot is SF eligible
-        if self.player_dict[lineup[2]]['GameTime'] > self.player_dict[lineup[6]]['GameTime'] and 'SF' in self.player_dict[lineup[6]]['Position']:
-            sorted_lineup[2] = lineup[6]
-            sorted_lineup[6] = lineup[2]
-        else:
-            sorted_lineup[2] = lineup[2]
-            sorted_lineup[6] = lineup[6]
-            
-        # Swap PF and F spots if PF is later than F and F spot is PF eligible
-        if self.player_dict[lineup[3]]['GameTime'] > self.player_dict[lineup[6]]['GameTime'] and 'PF' in self.player_dict[lineup[6]]['Position']:
-            sorted_lineup[3] = lineup[6]
-            sorted_lineup[6] = lineup[3]
-        else:
-            sorted_lineup[3] = lineup[3]
-            sorted_lineup[6] = lineup[6]
-            
-        # Swap C and UTIL spots if C is later than UTIL and UTIL spot is C eligible
-        if self.player_dict[lineup[4]]['GameTime'] > self.player_dict[lineup[7]]['GameTime'] and 'C' in self.player_dict[lineup[7]]['Position']:
-            sorted_lineup[4] = lineup[7]
-            sorted_lineup[7] = lineup[4]
-        else:
-            sorted_lineup[4] = lineup[4]
-            sorted_lineup[7] = lineup[7]
-        
-        # Swap any roster position with UTIL if UTIL is earlier than position and UTIL is eligible for position
+        # For the UTIL spot, we'll check if each player's game time is later, then try to swap
         for i, player in enumerate(lineup):
-            if self.player_dict[player]['GameTime'] < self.player_dict[lineup[7]]['GameTime']:
-                for position in self.player_dict[lineup[7]]['Position']:
-                    if position in self.player_dict[player]['Position']:
-                        sorted_lineup[i] = lineup[7]
-                        sorted_lineup[7] = lineup[i]
-                        break
-                    
+            if not is_locked(i) and not is_locked(7):
+                if self.player_dict[player]['GameTime'] > self.player_dict[lineup[7]]['GameTime']:
+                    for position in self.player_dict[lineup[7]]['Position']:
+                        if position in self.player_dict[player]['Position']:
+                            sorted_lineup[i], sorted_lineup[7] = lineup[7], lineup[i]
+                            break
+
+        # Fill any None values with the original players
+        for i, player in enumerate(sorted_lineup):
+            if player is None:
+                sorted_lineup[i] = lineup[i]
+
         return sorted_lineup
