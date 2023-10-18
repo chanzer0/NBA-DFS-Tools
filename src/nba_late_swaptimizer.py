@@ -23,6 +23,7 @@ class NBA_Late_Swaptimizer:
     at_most = {}
     team_limits = {}
     matchup_limits = {}
+    matchup_list = []
     matchup_at_least = {}
     ids_to_gametime = {}
     global_team_limit = None
@@ -72,12 +73,16 @@ class NBA_Late_Swaptimizer:
                     if self.site == 'dk':
                         self.player_dict[(player_name, position, team)]['ID'] = int(row['ID'])
                         self.player_dict[(player_name, position, team)]['Matchup'] = row['Game Info'].split(' ')[0]
+                        if row['Game Info'].split(' ')[0] not in self.matchup_list:
+                            self.matchup_list.append(row['Game Info'].split(' ')[0])
                         self.player_dict[(player_name, position, team)]['GameTime'] = ' '.join(row['Game Info'].split()[1:])
                         self.player_dict[(player_name, position, team)]['GameTime'] = datetime.datetime.strptime(self.player_dict[(player_name, position, team)]['GameTime'][:-3], '%m/%d/%Y %I:%M%p')
                         self.ids_to_gametime[int(row['ID'])] = self.player_dict[(player_name, position, team)]['GameTime']
                     else:
                         self.player_dict[(player_name, position, team)]['ID'] = row['Id'].replace('-', '#')
                         self.player_dict[(player_name, position, team)]['Matchup'] = row['Game']
+                        if row['Game'] not in self.matchup_list:
+                            self.matchup_list.append(row['Game'])
         
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -242,6 +247,18 @@ class NBA_Late_Swaptimizer:
                 >= min_salary,
                 "Min Salary",
             )
+            
+            # Must not play all 8 or 9 players from the same team (8 if dk, 9 if fd)
+            for matchup in self.matchup_list:
+                self.problem += (
+                    plp.lpSum(
+                        lp_variables[(player, pos, attributes['ID'])]
+                        for player, attributes in self.player_dict.items()
+                        for pos in attributes['Position'] if attributes['Matchup'] == matchup
+                    )
+                    <= 8 if self.site == 'dk' else 9,
+                    f"Must not play all players from same matchup {matchup}",
+                )
 
             # Address limit rules if any
             for limit, groups in self.at_least.items():
@@ -400,17 +417,76 @@ class NBA_Late_Swaptimizer:
        
         sorted_lineups = []
         for lineup, old_lineup in self.output_lineups:
-            # print(old_lineup)
             # print(lineup)
             sorted_lineup = self.sort_lineup_dk(lineup, old_lineup)
-            print(sorted_lineup)
+            # print(sorted_lineup)
             if self.site == 'dk':
                 sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup, old_lineup)
+                # print(sorted_lineup)
+                # print('-------------------')
             sorted_lineups.append((sorted_lineup, old_lineup))
-            print(sorted_lineup)
-            print('----------------------')
+            
+        late_swap_lineups_contest_entry_dict = {
+            (old_lineup['contest_id'], old_lineup['entry_id']): new_lineup for new_lineup, old_lineup in sorted_lineups
+        }
+        
+        # for tuple in late_swap_lineups_contest_entry_dict:
+        #     print(tuple)
 
-        # print(sorted_lineups)
+        late_swap_path = os.path.join(os.path.dirname(
+            __file__), '../{}_data/{}'.format(self.site, self.config['late_swap_path']))
+                         
+
+        # Read the existing data first
+        fieldnames = []
+        with open(late_swap_path, 'r', encoding='utf-8-sig') as file:
+            reader = csv.DictReader(file)
+            fieldnames = reader.fieldnames
+            rows = [row for row in reader]
+
+
+        PLACEHOLDER = "PLACEHOLDER_FOR_NONE"
+        # If any row has a None key, ensure the placeholder is in the fieldnames
+        for row in rows:
+            if None in row and PLACEHOLDER not in fieldnames:
+                fieldnames.append(PLACEHOLDER)
+
+        # Now, modify the rows
+        updated_rows = []
+        for row in rows:
+            if row['Entry ID'] != '':
+                contest_id = row['Contest ID']
+                entry_id = row['Entry ID']
+                matching_lineup = late_swap_lineups_contest_entry_dict.get((contest_id, entry_id))
+                if matching_lineup:
+                    row['PG'] = f"{self.player_dict[matching_lineup[0]]['Name']} ({self.player_dict[matching_lineup[0]]['ID']})"
+                    row['SG'] = f"{self.player_dict[matching_lineup[1]]['Name']} ({self.player_dict[matching_lineup[1]]['ID']})"
+                    row['SF'] = f"{self.player_dict[matching_lineup[2]]['Name']} ({self.player_dict[matching_lineup[2]]['ID']})"
+                    row['PF'] = f"{self.player_dict[matching_lineup[3]]['Name']} ({self.player_dict[matching_lineup[3]]['ID']})"
+                    row['C'] = f"{self.player_dict[matching_lineup[4]]['Name']} ({self.player_dict[matching_lineup[4]]['ID']})"
+                    row['G'] = f"{self.player_dict[matching_lineup[5]]['Name']} ({self.player_dict[matching_lineup[5]]['ID']})"
+                    row['F'] = f"{self.player_dict[matching_lineup[6]]['Name']} ({self.player_dict[matching_lineup[6]]['ID']})"
+                    row['UTIL'] = f"{self.player_dict[matching_lineup[7]]['Name']} ({self.player_dict[matching_lineup[7]]['ID']})"
+                
+            updated_rows.append(row)
+
+        new_late_swap_path = os.path.join(os.path.dirname(
+            __file__), '../output/late_swap_{}.csv'.format(datetime.datetime.now().strftime("%Y%m%d_%H%M%S")))
+
+        with open(new_late_swap_path, 'w', encoding='utf-8-sig', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=[PLACEHOLDER if f is None else f for f in fieldnames])
+            writer.writeheader()
+            for row in updated_rows:
+                if None in row:
+                    row[PLACEHOLDER] = row.pop(None)
+                writer.writerow(row)
+
+                
+        with open(new_late_swap_path, 'r', encoding='utf-8-sig') as file:
+            content = file.read().replace(PLACEHOLDER, '')
+
+        with open(new_late_swap_path, 'w', encoding='utf-8-sig') as file:
+            file.write(content)
         
         print('Output done.')
 
@@ -462,41 +538,75 @@ class NBA_Late_Swaptimizer:
 
         
 
+    """
+    Takes an old_lineup, which dictates which players are already locked and cannot be moved,
+    lineup which is a newly-constructed roster, and returns a new sorted lineup optimized for
+    late swapping, where the later a players gametime is, the further down the roster they go,
+    so long as both player being swapped are eligible for either position
+    """
     def adjust_roster_for_late_swap_dk(self, lineup, old_lineup):
-        sorted_lineup = [None] * 8
+        print(old_lineup)
+        print(lineup)
+        POSITIONS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
 
-        # A function to determine if a player at a specific position is locked
         def is_locked(position_index):
-            position_name = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"][position_index]
-            return old_lineup[f"{position_name}_is_locked"]
+            if 0 <= position_index < 8:
+                position_name = POSITIONS[position_index]
+                return old_lineup[f"{position_name}_is_locked"]
+            else:
+                raise ValueError(f"Invalid position index: {position_index}")
 
-        # A function to swap two players if conditions are met
-        def attempt_swap(primary_index, flex_index, primary_eligibility):
-            if not is_locked(primary_index) and not is_locked(flex_index):
-                if self.player_dict[lineup[primary_index]]['GameTime'] > self.player_dict[lineup[flex_index]]['GameTime'] and primary_eligibility in self.player_dict[lineup[flex_index]]['Position']:
-                    sorted_lineup[primary_index], sorted_lineup[flex_index] = lineup[flex_index], lineup[primary_index]
-                else:
-                    sorted_lineup[primary_index], sorted_lineup[flex_index] = lineup[primary_index], lineup[flex_index]
-
-        # Use attempt_swap function for each position
-        attempt_swap(0, 5, 'PG')
-        attempt_swap(1, 5, 'SG')
-        attempt_swap(2, 6, 'SF')
-        attempt_swap(3, 6, 'PF')
-        attempt_swap(4, 7, 'C')
-
-        # For the UTIL spot, we'll check if each player's game time is later, then try to swap
+        # 1. Map each player in lineup to positions they are eligible to be swapped into
+        player_to_swappable_positions = {}
         for i, player in enumerate(lineup):
-            if not is_locked(i) and not is_locked(7):
-                if self.player_dict[player]['GameTime'] > self.player_dict[lineup[7]]['GameTime']:
-                    for position in self.player_dict[lineup[7]]['Position']:
-                        if position in self.player_dict[player]['Position']:
-                            sorted_lineup[i], sorted_lineup[7] = lineup[7], lineup[i]
-                            break
+            if is_locked(i):
+                continue
+            positions = self.player_dict[player]['Position']
+            player_to_swappable_positions[player] = [
+                "PG" if "PG" in positions else None,
+                "SG" if "SG" in positions else None,
+                "SF" if "SF" in positions else None,
+                "PF" if "PF" in positions else None,
+                "C" if "C" in positions else None,
+                "G" if "PG" in positions or "SG" in positions else None,
+                "F" if "SF" in positions or "PF" in positions else None,
+                "UTIL"                                         
+            ]
+            # remove nones from the array
+            player_to_swappable_positions[player] = [pos for pos in player_to_swappable_positions[player] if pos is not None]
 
-        # Fill any None values with the original players
-        for i, player in enumerate(sorted_lineup):
-            if player is None:
-                sorted_lineup[i] = lineup[i]
+        has_player_been_swapped = {player: False for player in lineup}
+        # 2. Attempt to swap players in lineup with positions they are eligible for, only swapping if both players are eligible for one another's positions and the later GameTime is later in the roster
+        for i, player in enumerate(lineup):
+            if is_locked(i):
+                continue
+            eligible_positions = player_to_swappable_positions[player]
+            # print(player, eligible_positions)
+            for pos in eligible_positions:
+                pos_idx = POSITIONS.index(pos)
+                if pos_idx == i:
+                    continue
+                # print(pos)
+                player_at_swappable_pos = lineup[pos_idx]
+                
+                if has_player_been_swapped[player_at_swappable_pos]:
+                    continue
+                
+                is_positionally_eligible = POSITIONS[i] in player_to_swappable_positions[player_at_swappable_pos]
+                # print(player_at_swappable_pos, is_positionally_eligible)
+                if not is_positionally_eligible:
+                    continue
+                
+                # print(self.player_dict[player]['GameTime'])
+                # print(self.player_dict[player_at_swappable_pos]['GameTime'])
+                if self.player_dict[player]['GameTime'] < self.player_dict[player_at_swappable_pos]['GameTime']:
+                    # print(f"Swapping {player} and {player_at_swappable_pos}")
+                    lineup[i], lineup[pos_idx] = lineup[pos_idx], lineup[i]
+                    has_player_been_swapped[player] = True
+                    break
+       
+       
+        print(lineup)
+        print('-------------------')
+        return lineup
 
-        return sorted_lineup
