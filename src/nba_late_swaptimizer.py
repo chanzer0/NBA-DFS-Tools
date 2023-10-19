@@ -5,7 +5,7 @@ import datetime
 import re
 import numpy as np
 import pulp as plp
-from random import shuffle, choice
+import random
 import itertools
 
 class NBA_Late_Swaptimizer:
@@ -118,6 +118,13 @@ class NBA_Late_Swaptimizer:
                     'StdDev': float(row['stddev']),
                     'Position': [pos for pos in row['position'].split('/')],
                 }
+                if 'PG' in row['position'] or 'SG' in row['position']:
+                    self.player_dict[(player_name, position, team)]['Position'].append('G')
+                if 'SF' in row['position'] or 'PF' in row['position']:
+                    self.player_dict[(player_name, position, team)]['Position'].append('F')
+                
+                self.player_dict[(player_name, position, team)]['Position'].append('UTIL')
+                
                 if row['team'] not in self.team_list:
                     self.team_list.append(row['team'])
        
@@ -126,10 +133,11 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(self.lower_first(file))
+            current_time = datetime.datetime.now()  # get the current time
+            print(f"Current time (UTC): {current_time}")
+            # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
             for row in reader:
                 if row['entry id'] != '' and self.site == 'dk':
-                    current_time = datetime.datetime.now()  # get the current time
-                    # current_time = datetime.datetime(2023, 10, 24, 20, 0)
                     PG_id = re.search(r"\((\d+)\)", row['pg']).group(1)
                     SG_id = re.search(r"\((\d+)\)", row['sg']).group(1)
                     SF_id = re.search(r"\((\d+)\)", row['sf']).group(1)
@@ -142,6 +150,7 @@ class NBA_Late_Swaptimizer:
                         {
                             'entry_id': row['entry id'],
                             'contest_id': row['contest id'],
+                            'contest_name': row['contest name'],
                             'PG': row['pg'].replace('-', '#'),
                             'SG': row['sg'].replace('-', '#'),
                             'SF': row['sf'].replace('-', '#'),
@@ -160,6 +169,7 @@ class NBA_Late_Swaptimizer:
                             'UTIL_is_locked': current_time > self.ids_to_gametime[int(UTIL_id)],
                         }
                     )
+        print(f"Successfully loaded {len(self.lineups)} lineups for late swap.")
        
                 
     def swaptimize(self):
@@ -168,16 +178,9 @@ class NBA_Late_Swaptimizer:
 
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
-        
-        
         for lineup_obj in self.lineups:
-            # print(lineup_obj)
-            already_used_players = [lineup_obj['PG'], lineup_obj['SG'], lineup_obj['SF'], lineup_obj['PF'], lineup_obj['C'], lineup_obj['G'], lineup_obj['F'], lineup_obj['UTIL']]
+            print(f"Swaptimizing lineup {lineup_obj['entry_id']} in contest {lineup_obj['contest_name']}")
             self.problem = plp.LpProblem('NBA', plp.LpMaximize)
-            
-            # for (player, pos_str, team) in self.player_dict:
-            #     print((player, pos_str, team))
-            #     print(self.player_dict[(player, pos_str, team)]["ID"])
 
             lp_variables = {}
             for player, attributes in self.player_dict.items():
@@ -185,8 +188,6 @@ class NBA_Late_Swaptimizer:
                 for pos in attributes['Position']:
                     lp_variables[(player, pos, player_id)] = plp.LpVariable(name=f"{player}_{pos}_{player_id}", cat=plp.LpBinary)
         
-            
-            
             # set the objective - maximize fpts & set randomness amount from config
             if self.randomness_amount != 0:
                 self.problem += (
@@ -325,64 +326,54 @@ class NBA_Late_Swaptimizer:
                         f"Global team limit - at most {self.global_team_limit} players from {teamIdent}",
                     )
 
+            # Force players to be used if they are locked
+            POSITIONS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
+            FORCE_PLAYERS = []
+            for position in POSITIONS:
+                if lineup_obj[position + '_is_locked']:
+                    player_id = re.search(r"\((\d+)\)", lineup_obj[position]).group(1)
+                    for p_tuple, attributes in self.player_dict.items():
+                        if str(attributes['ID']) == str(player_id):
+                            FORCE_PLAYERS.append((p_tuple, position, attributes['ID']))
+                            
+            for forced_player in FORCE_PLAYERS:
+                self.problem +=(
+                    lp_variables[forced_player] == 1,
+                    f"Force player {forced_player}"
+                )
+                
             if self.site == 'dk':
                 # Constraints for specific positions
-                for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
-                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+                for pos in ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']:
+                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 1, f"Must have at 1 {pos}"
 
                 # Constraint to ensure each player is only selected once
                 for player in self.player_dict:
                     player_id = self.player_dict[player]['ID']
                     self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
 
-                # Handle the G, F, and UTIL spots
-                guards = ['PG', 'SG']
-                forwards = ['SF', 'PF']
-
-                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in guards if pos in attributes['Position']) >= 3, f"Must have at least 3 guards"
-                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in forwards if pos in attributes['Position']) >= 3, f"Must have at least 3 forwards"
-
-                # UTIL can be from any position. But you don't really need a separate constraint for UTIL.
-                # It's automatically handled because you're ensuring every other position is filled and each player is selected at most once. 
-                # If you've correctly handled the other positions, UTIL will be the remaining player.
-
-                # Total players constraint
-                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 8, f"Must have 8 players"
             else:
             # Constraints for specific positions
                 for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
                     if pos == 'C':
-                        self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+                        self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 1, f"Must have 1 {pos}"
                     else:
-                        self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 2, f"Must have at least 2 {pos}"
-
+                        self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 2, f"Must have 2 {pos}"
 
                 # Constraint to ensure each player is only selected once
                 for player in self.player_dict:
                     player_id = self.player_dict[player]['ID']
                     self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
 
-                
-                # Total players constraint
-                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 9, f"Must have 9 players"
-
             # Don't dupe a lineup we already used
             i = 0
             for lineup, _ in self.output_lineups:
-                # Ensure this lineup isn't picked again
-                unique_constraints = []
-                for player_key in lineup:
-                    player_id = self.player_dict[player_key]['ID']
-                    for position in self.player_dict[player_key]['Position']:
-                        unique_constraints.append(lp_variables[(player_key, position, player_id)])
-
                 self.problem += (
-                    plp.lpSum(unique_constraints) <= len(lineup) - self.num_uniques,
+                    plp.lpSum(lp_variables[x] for x in lineup) <= len(lineup) - self.num_uniques,
                     f"Lineup {i}",
                 )
                 i += 1
             
-           
             try:
                 self.problem.solve(plp.PULP_CBC_CMD(msg=0))
             except plp.PulpSolverError:
@@ -390,26 +381,15 @@ class NBA_Late_Swaptimizer:
                     len(self.output_lineups), self.lineups))
                 break
                 
-            # Check for infeasibility
+            ## Check for infeasibility
             if plp.LpStatus[self.problem.status] != 'Optimal':
                 print('Infeasibility reached - only generated {} lineups out of {}. Continuing with export.'.format(
-                    len(self.output_lineups), self.lineups))
+                    len(self.lineups), self.num_lineups))
                 break
 
             # Get the lineup and add it to our list
             selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
-            # print(selected_vars)
-
-            selected_players_info = [var[0] for var in selected_vars]
-
-            players = []
-            for key in self.player_dict.keys():
-                if key in selected_players_info:
-                    players.append(key)
-                      
-            # fpts_used = self.problem.objective.value()
-            # print(fpts_used, players)
-            self.output_lineups.append((players, lineup_obj))
+            self.output_lineups.append((selected_vars, lineup_obj))
 
 
     def output(self):
@@ -417,33 +397,24 @@ class NBA_Late_Swaptimizer:
        
         sorted_lineups = []
         for lineup, old_lineup in self.output_lineups:
-            # print(lineup)
-            sorted_lineup = self.sort_lineup_dk(lineup, old_lineup)
-            # print(sorted_lineup)
+            sorted_lineup = self.sort_lineup_dk(lineup)
             if self.site == 'dk':
                 sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup, old_lineup)
-                # print(sorted_lineup)
-                # print('-------------------')
             sorted_lineups.append((sorted_lineup, old_lineup))
             
         late_swap_lineups_contest_entry_dict = {
             (old_lineup['contest_id'], old_lineup['entry_id']): new_lineup for new_lineup, old_lineup in sorted_lineups
         }
         
-        # for tuple in late_swap_lineups_contest_entry_dict:
-        #     print(tuple)
-
         late_swap_path = os.path.join(os.path.dirname(
             __file__), '../{}_data/{}'.format(self.site, self.config['late_swap_path']))
                          
-
         # Read the existing data first
         fieldnames = []
         with open(late_swap_path, 'r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             fieldnames = reader.fieldnames
             rows = [row for row in reader]
-
 
         PLACEHOLDER = "PLACEHOLDER_FOR_NONE"
         # If any row has a None key, ensure the placeholder is in the fieldnames
@@ -491,64 +462,21 @@ class NBA_Late_Swaptimizer:
         print('Output done.')
 
 
-    def sort_lineup_dk(self, lineup, old_lineup):
-        # 1. Initialize our final lineup
-        sorted_lineup = {
-            'PG': None, 'SG': None, 'SF': None, 'PF': None, 
-            'C': None, 'G': None, 'F': None, 'UTIL': None
-        }
-
-        # This will store full position and team information
-        player_info = {player: (position, team) for player, position, team in lineup}
-
-        # 2. Fill in locked players
-        for pos, player in old_lineup.items():
-            if pos.endswith('_is_locked') and player:
-                main_pos = pos.split('_is_locked')[0]
-                if old_lineup[main_pos]:
-                    player_name = old_lineup[main_pos].split(' ')[0]
-                    sorted_lineup[main_pos] = player_name
-                    # remove the locked player from the lineup list
-                    lineup = [p for p in lineup if p[0] != player_name]
-
-        # 3. Fill in the remaining players using recursion
-        def place_player(idx, current_lineup):
-            # base case: all players placed
-            if idx == len(lineup):
-                return True
-            
-            player, positions, _ = lineup[idx]
-            for pos, _ in current_lineup.items():
-                if not current_lineup[pos] and (pos in positions or pos == 'UTIL'):
-                    # place the player
-                    current_lineup[pos] = player
-                    if place_player(idx + 1, current_lineup):
-                        return True
-                    # backtrack
-                    current_lineup[pos] = None
-
-            return False
-
-        place_player(0, sorted_lineup)
-
-        # Convert the dictionary to a list of tuples
-        final_sorted_lineup = [(player, *player_info[player]) for pos, player in sorted_lineup.items() if player]
-
-        return final_sorted_lineup
-
+    def sort_lineup_dk(self, lineup):
+        order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
+        sorted_lineup = [None] * 8
         
+        for player in lineup:
+            player_key, pos, _ = player
+            sorted_lineup[order.index(pos)] = player_key
+        return sorted_lineup
 
-    """
-    Takes an old_lineup, which dictates which players are already locked and cannot be moved,
-    lineup which is a newly-constructed roster, and returns a new sorted lineup optimized for
-    late swapping, where the later a players gametime is, the further down the roster they go,
-    so long as both player being swapped are eligible for either position
-    """
+
     def adjust_roster_for_late_swap_dk(self, lineup, old_lineup):
-        print(old_lineup)
-        print(lineup)
+        sorted_lineup = list(lineup)
+        
+        # Helper function
         POSITIONS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
-
         def is_locked(position_index):
             if 0 <= position_index < 8:
                 position_name = POSITIONS[position_index]
@@ -556,57 +484,38 @@ class NBA_Late_Swaptimizer:
             else:
                 raise ValueError(f"Invalid position index: {position_index}")
 
-        # 1. Map each player in lineup to positions they are eligible to be swapped into
-        player_to_swappable_positions = {}
-        for i, player in enumerate(lineup):
-            if is_locked(i):
-                continue
-            positions = self.player_dict[player]['Position']
-            player_to_swappable_positions[player] = [
-                "PG" if "PG" in positions else None,
-                "SG" if "SG" in positions else None,
-                "SF" if "SF" in positions else None,
-                "PF" if "PF" in positions else None,
-                "C" if "C" in positions else None,
-                "G" if "PG" in positions or "SG" in positions else None,
-                "F" if "SF" in positions or "PF" in positions else None,
-                "UTIL"                                         
-            ]
-            # remove nones from the array
-            player_to_swappable_positions[player] = [pos for pos in player_to_swappable_positions[player] if pos is not None]
+        # A function to swap two players if the conditions are met
+        def swap_if_needed(primary_pos, flex_pos):
+            if is_locked(primary_pos) or is_locked(flex_pos):
+                return
+            primary_player = sorted_lineup[primary_pos]
+            flex_player = sorted_lineup[flex_pos]
 
-        has_player_been_swapped = {player: False for player in lineup}
-        # 2. Attempt to swap players in lineup with positions they are eligible for, only swapping if both players are eligible for one another's positions and the later GameTime is later in the roster
-        for i, player in enumerate(lineup):
-            if is_locked(i):
-                continue
-            eligible_positions = player_to_swappable_positions[player]
-            # print(player, eligible_positions)
-            for pos in eligible_positions:
-                pos_idx = POSITIONS.index(pos)
-                if pos_idx == i:
-                    continue
-                # print(pos)
-                player_at_swappable_pos = lineup[pos_idx]
+            # Check if the primary player's game time is later than the flexible player's
+            if self.player_dict[primary_player]['GameTime'] > self.player_dict[flex_player]['GameTime']:
+                primary_positions = self.position_map[primary_pos]
                 
-                if has_player_been_swapped[player_at_swappable_pos]:
-                    continue
-                
-                is_positionally_eligible = POSITIONS[i] in player_to_swappable_positions[player_at_swappable_pos]
-                # print(player_at_swappable_pos, is_positionally_eligible)
-                if not is_positionally_eligible:
-                    continue
-                
-                # print(self.player_dict[player]['GameTime'])
-                # print(self.player_dict[player_at_swappable_pos]['GameTime'])
-                if self.player_dict[player]['GameTime'] < self.player_dict[player_at_swappable_pos]['GameTime']:
-                    # print(f"Swapping {player} and {player_at_swappable_pos}")
-                    lineup[i], lineup[pos_idx] = lineup[pos_idx], lineup[i]
-                    has_player_been_swapped[player] = True
-                    break
-       
-       
-        print(lineup)
-        print('-------------------')
-        return lineup
+                # Check if the flexible player is eligible for the primary position
+                if any(pos in primary_positions for pos in self.player_dict[flex_player]['Position']):
+                    sorted_lineup[primary_pos], sorted_lineup[flex_pos] = sorted_lineup[flex_pos], sorted_lineup[primary_pos]
 
+        # Define eligible positions for each spot on the roster
+        self.position_map = {
+            0: ['PG'],
+            1: ['SG'],
+            2: ['SF'],
+            3: ['PF'],
+            4: ['C'],
+            5: ['PG', 'SG'],
+            6: ['SF', 'PF'],
+            7: ['PG', 'SG', 'SF', 'PF', 'C']
+        }
+
+        # Check each primary position against all flexible positions
+        for i in range(5):
+            for j in range(5, 8):
+                swap_if_needed(i, j)
+
+        return sorted_lineup
+
+   

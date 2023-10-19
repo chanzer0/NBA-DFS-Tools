@@ -4,7 +4,7 @@ import os
 import datetime
 import numpy as np
 import pulp as plp
-from random import shuffle, choice
+import random
 import itertools
 
 class NBA_Optimizer:
@@ -112,6 +112,13 @@ class NBA_Optimizer:
                     'StdDev': float(row['stddev']),
                     'Position': [pos for pos in row['position'].split('/')],
                 }
+                if 'PG' in row['position'] or 'SG' in row['position']:
+                    self.player_dict[(player_name, position, team)]['Position'].append('G')
+                if 'SF' in row['position'] or 'PF' in row['position']:
+                    self.player_dict[(player_name, position, team)]['Position'].append('F')
+                
+                self.player_dict[(player_name, position, team)]['Position'].append('UTIL')
+                            
                 if row['team'] not in self.team_list:
                     self.team_list.append(row['team'])
                 
@@ -270,34 +277,21 @@ class NBA_Optimizer:
 
         if self.site == 'dk':
             # Constraints for specific positions
-            for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
-                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+            for pos in ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']:
+                self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 1, f"Must have 1 {pos}"
 
             # Constraint to ensure each player is only selected once
             for player in self.player_dict:
                 player_id = self.player_dict[player]['ID']
                 self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
 
-            # Handle the G, F, and UTIL spots
-            guards = ['PG', 'SG']
-            forwards = ['SF', 'PF']
-
-            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in guards if pos in attributes['Position']) >= 3, f"Must have at least 3 guards"
-            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in forwards if pos in attributes['Position']) >= 3, f"Must have at least 3 forwards"
-
-            # UTIL can be from any position. But you don't really need a separate constraint for UTIL.
-            # It's automatically handled because you're ensuring every other position is filled and each player is selected at most once. 
-            # If you've correctly handled the other positions, UTIL will be the remaining player.
-
-            # Total players constraint
-            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 8, f"Must have 8 players"
         else:
            # Constraints for specific positions
             for pos in ['PG', 'SG', 'SF', 'PF', 'C']:
                 if pos == 'C':
-                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 1, f"Must have at least 1 {pos}"
+                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 1, f"Must have 1 {pos}"
                 else:
-                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) >= 2, f"Must have at least 2 {pos}"
+                    self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 2, f"Must have 2 {pos}"
 
 
             # Constraint to ensure each player is only selected once
@@ -305,13 +299,9 @@ class NBA_Optimizer:
                 player_id = self.player_dict[player]['ID']
                 self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
 
-            
-            # Total players constraint
-            self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() for pos in attributes['Position']) == 9, f"Must have 9 players"
-
         # Crunch!
         for i in range(self.num_lineups):
-            self.problem.writeLP("problem.lp")
+            # self.problem.writeLP("problem.lp")
             try:
                 self.problem.solve(plp.PULP_CBC_CMD(msg=0))
             except plp.PulpSolverError:
@@ -327,24 +317,17 @@ class NBA_Optimizer:
 
             # Get the lineup and add it to our list
             selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
-            # print(selected_vars)
-
+            self.lineups.append(selected_vars)
+            
+            if i % 100 == 0:
+                print(i)
+            
+            # Ensure this lineup isn't picked again
             selected_players_info = [var[0] for var in selected_vars]
-
             players = []
             for key in self.player_dict.keys():
                 if key in selected_players_info:
                     players.append(key)
-                      
-            # fpts_used = self.problem.objective.value()
-            # print(fpts_used, players)
-            self.lineups.append(players)
-            
-            if i % 100 == 0:
-                print(i)
-
-            
-            # Ensure this lineup isn't picked again
             unique_constraints = []
             for player_key in players:
                 player_id = self.player_dict[player_key]['ID']
@@ -448,55 +431,17 @@ class NBA_Optimizer:
         print('Output done.')
 
 
+
     def sort_lineup_dk(self, lineup):
         order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
         sorted_lineup = [None] * 8
-        # print(lineup)
-        # Helper function to insert player to the lineup and remove from remaining list
-        def insert_and_remove(player, position):
-            sorted_lineup[order.index(position)] = player
-            lineup.remove(player)
-
-        # Step 1: Fit players with single positional eligibility to their spots or fallbacks
-        for player in lineup[:]:  # Loop through a copy of lineup
-            if '/' not in player[1]:  # Single-position players
-                if sorted_lineup[order.index(player[1])] is None:
-                    insert_and_remove(player, player[1])
-                elif player[1] in ['PG', 'SG'] and sorted_lineup[order.index('G')] is None:
-                    insert_and_remove(player, 'G')
-                elif player[1] in ['SF', 'PF'] and sorted_lineup[order.index('F')] is None:
-                    insert_and_remove(player, 'F')
-                elif sorted_lineup[order.index('UTIL')] is None:
-                    insert_and_remove(player, 'UTIL')
-
-        # Step 2: Fit multi-positional players to best spots available
-        dual_positions = {
-            'PG/SG': ['PG', 'SG', 'G', 'UTIL'],
-            'SG/SF': ['SG', 'SF', 'G', 'F', 'UTIL'],
-            'SF/PF': ['SF', 'PF', 'F', 'UTIL'],
-            'PF/C': ['PF', 'C', 'UTIL'],
-            'PG/SF': ['PG', 'SF', 'G', 'F', 'UTIL'],
-        }
-        for player in lineup[:]:
-            for position in dual_positions[player[1]]:
-                if sorted_lineup[order.index(position)] is None:
-                    insert_and_remove(player, position)
-                    break
-
-        # Step 3: Fill any remaining spots with leftover players
-        for player in lineup:
-            for position in order:
-                if sorted_lineup[order.index(position)] is None:
-                    insert_and_remove(player, position)
-                    break
         
-        # print(sorted_lineup)
-        # print('-----------------------------------')
+        for player in lineup:
+            player_key, pos, _ = player
+            sorted_lineup[order.index(pos)] = player_key
         return sorted_lineup
 
-
     def adjust_roster_for_late_swap_dk(self, lineup):
-        # print(lineup)
         sorted_lineup = list(lineup)
 
         # A function to swap two players if the conditions are met
@@ -529,6 +474,4 @@ class NBA_Optimizer:
             for j in range(5, 8):
                 swap_if_needed(i, j)
 
-        # print(sorted_lineup)
-        # print('-----------------------------------')
         return sorted_lineup
