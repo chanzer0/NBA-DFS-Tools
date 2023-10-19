@@ -508,16 +508,28 @@ class NBA_GPP_Simulator:
 
     def load_correlation_rules(self):
         if len(self.correlation_rules.keys()) > 0:
-            for c in self.correlation_rules.keys():
-                for k in self.player_dict:
-                    if (
-                        c.replace("-", "#").lower().strip()
-                        in self.player_dict[k].values()
-                    ):
-                        for v in self.correlation_rules[c].keys():
-                            self.player_dict[k]["Correlations"][
-                                v
-                            ] = self.correlation_rules[c][v]
+            for primary_player in self.correlation_rules.keys():
+                # Convert primary_player to the consistent format
+                formatted_primary_player = primary_player.replace("-", "#").lower().strip()
+                for (player_name, pos_str, team), player_data in self.player_dict.items():
+                    if formatted_primary_player == player_name:
+                        for second_entity, correlation_value in self.correlation_rules[primary_player].items():
+                            # Convert second_entity to the consistent format
+                            formatted_second_entity = second_entity.replace("-", "#").lower().strip()
+
+                            # Check if the formatted_second_entity is a player name
+                            found_second_entity = False
+                            for (se_name, se_pos_str, se_team), se_data in self.player_dict.items():
+                                if formatted_second_entity == se_name:
+                                    player_data["Player Correlations"][formatted_second_entity] = correlation_value
+                                    se_data["Player Correlations"][formatted_primary_player] = correlation_value
+                                    found_second_entity = True
+                                    break
+
+                            # If the second_entity is not found as a player, assume it's a position and update 'Correlations'
+                            if not found_second_entity:
+                                player_data["Correlations"][second_entity] = correlation_value
+
 
     # Load config from file
     def load_config(self):
@@ -583,67 +595,67 @@ class NBA_GPP_Simulator:
                 if pos == "PG":
                     corr = {
                         "PG": 1,
-                        "SG": 0.05,
-                        "SF": 0.05,
-                        "PF": 0.05,
-                        "C": 0.05,
-                        "Opp PG": -0.05,
-                        "Opp SG": -0.05,
-                        "Opp SF": -0.05,
-                        "Opp PF": -0.05,
-                        "Opp C": -0.05,
+                        "SG": -0.066989,
+                        "SF": -0.066989,
+                        "PF": -0.066989,
+                        "C": -0.043954,
+                        "Opp PG": 0.020682,
+                        "Opp SG": 0.020682,
+                        "Opp SF": 0.015477,
+                        "Opp PF": 0.015477,
+                        "Opp C": 0.000866,
                     }
                 elif pos == "SG":
                     corr = {
-                        "PG": 0.05,
+                        "PG": -0.066989,
                         "SG": 1,
-                        "SF": 0.05,
-                        "PF": 0.05,
-                        "C": 0.05,
-                        "Opp PG": -0.05,
-                        "Opp SG": -0.05,
-                        "Opp SF": -0.05,
-                        "Opp PF": -0.05,
-                        "Opp C": -0.05,
+                        "SF": -0.066989,
+                        "PF": -0.066989,
+                        "C": -0.043954,
+                        "Opp PG": 0.020682,
+                        "Opp SG": 0.020682,
+                        "Opp SF": 0.015477,
+                        "Opp PF": 0.015477,
+                        "Opp C": 0.000866,
                     }
                 elif pos == "SF":
                     corr = {
-                        "PG": 0.05,
-                        "SG": 0.05,
+                        "PG": -0.066989,
+                        "SG": -0.066989,
                         "SF": 1,
-                        "PF": 0.05,
-                        "C": 0.05,
-                        "Opp PG": -0.05,
-                        "Opp SG": -0.05,
-                        "Opp SF": -0.05,
-                        "Opp PF": -0.05,
-                        "Opp C": -0.05,
+                        "PF": -0.002143,
+                        "C": -0.082331,
+                        "Opp PG": 0.015477,
+                        "Opp SG": 0.015477,
+                        "Opp SF": 0.015477,
+                        "Opp PF": 0.015477,
+                        "Opp C": -0.012331,
                     }
                 elif pos == "PF":
                     corr = {
-                        "PG": 0.05,
-                        "SG": 0.05,
-                        "SF": 0.05,
+                        "PG": -0.066989,
+                        "SG": -0.066989,
+                        "SF": -0.002143,
                         "PF": 1,
-                        "C": 0.05,
-                        "Opp PG": -0.05,
-                        "Opp SG": -0.05,
-                        "Opp SF": -0.05,
-                        "Opp PF": -0.05,
-                        "Opp C": -0.05,
+                        "C": -0.082331,
+                        "Opp PG": 0.015477,
+                        "Opp SG": 0.015477,
+                        "Opp SF": 0.015477,
+                        "Opp PF": 0.015477,
+                        "Opp C": -0.012331,
                     }
                 elif pos == "C":
                     corr = {
-                        "PG": 0.05,
-                        "SG": 0.05,
-                        "SF": 0.05,
-                        "PF": 0.05,
+                        "PG": -0.043954,
+                        "SG": -0.043954,
+                        "SF": -0.082331,
+                        "PF": -0.082331,
                         "C": 1,
-                        "Opp PG": -0.05,
-                        "Opp SG": -0.05,
-                        "Opp SF": -0.05,
-                        "Opp PF": -0.05,
-                        "Opp C": -0.05,
+                        "Opp PG": 0.000866,
+                        "Opp SG": 0.000866,
+                        "Opp SF": -0.012331,
+                        "Opp PF": -0.012331,
+                        "Opp C": -0.073081,
                     }
                 team = row["team"]
                 own = float(row["own%"].replace("%", ""))
@@ -664,6 +676,7 @@ class NBA_GPP_Simulator:
                     "Ceiling": ceil,
                     "Ownership": own,
                     "Correlations": corr,
+                    "Player Correlations": {},
                     "In Lineup": False,
                     "Minutes" : mins
                 }
@@ -1112,20 +1125,30 @@ class NBA_GPP_Simulator:
         # Define correlations between positions
 
         def get_corr_value(player1, player2):
-            # If players are on the same team and have the same position
-            if (
-                player1["Team"] == player2["Team"]
-                and player1["Position"][0] == player2["Position"][0]
-            ):
-                return -0.25
+            # First, check for specific player-to-player correlations
+            if player2["Name"] in player1.get("Player Correlations", {}):
+                return player1["Player Correlations"][player2["Name"]]
+            
+            # If no specific correlation is found, proceed with the general logic
+            position_correlations = {
+                "PG": -0.1324,
+                "SG": -0.1324,
+                "SF": -0.0812,
+                "PF": -0.0812,
+                "C": -0.1231
+            }
+
+            if player1["Team"] == player2["Team"] and player1["Position"][0] in ["PG", "SG", "SF", "PF", "C"]:
+                primary_position = player1["Position"][0]
+                return position_correlations[primary_position]
 
             if player1["Team"] != player2["Team"]:
                 player_2_pos = "Opp " + str(player2["Position"][0])
             else:
                 player_2_pos = player2["Position"][0]
 
-            # Fetch correlation value based on player1's primary position for player2's primary position
-            return player1["Correlations"][player_2_pos]
+            return player1["Correlations"].get(player_2_pos, 0)  # Default to 0 if no correlation is found
+
 
         def build_covariance_matrix(players):
             N = len(players)
@@ -1195,62 +1218,62 @@ class NBA_GPP_Simulator:
         for i, player in enumerate(game):
             temp_fpts_dict[player["ID"]] = player_samples[i]
 
-        # fig, (ax1, ax2, ax3,ax4) = plt.subplots(4, figsize=(15, 25))
-        # fig.tight_layout(pad=5.0)
+        fig, (ax1, ax2, ax3,ax4) = plt.subplots(4, figsize=(15, 25))
+        fig.tight_layout(pad=5.0)
 
-        # for i, player in enumerate(game):
-        #     sns.kdeplot(player_samples[i], ax=ax1, label=player['Name'])
+        for i, player in enumerate(game):
+            sns.kdeplot(player_samples[i], ax=ax1, label=player['Name'])
 
-        # ax1.legend(loc='upper right', fontsize=14)
-        # ax1.set_xlabel('Fpts', fontsize=14)
-        # ax1.set_ylabel('Density', fontsize=14)
-        # ax1.set_title(f'Team {team1_id}{team2_id} Distributions', fontsize=14)
-        # ax1.tick_params(axis='both', which='both', labelsize=14)
+        ax1.legend(loc='upper right', fontsize=14)
+        ax1.set_xlabel('Fpts', fontsize=14)
+        ax1.set_ylabel('Density', fontsize=14)
+        ax1.set_title(f'Team {team1_id}{team2_id} Distributions', fontsize=14)
+        ax1.tick_params(axis='both', which='both', labelsize=14)
 
-        # y_min, y_max = ax1.get_ylim()
-        # ax1.set_ylim(y_min, y_max*1.1)
+        y_min, y_max = ax1.get_ylim()
+        ax1.set_ylim(y_min, y_max*1.1)
 
-        # ax1.set_xlim(-5, 50)
+        ax1.set_xlim(-5, 50)
 
-        # # # Sorting players and correlating their data
-        # player_names = [f"{player['Name']} ({player['Position']})" if player['Position'] is not None else f"{player['Name']} (P)" for player in game]
+        # # Sorting players and correlating their data
+        player_names = [f"{player['Name']} ({player['Position']})" if player['Position'] is not None else f"{player['Name']} (P)" for player in game]
 
-        # # # Ensuring the data is correctly structured as a 2D array
-        # sorted_samples_array = np.array(player_samples)
-        # if sorted_samples_array.shape[0] < sorted_samples_array.shape[1]:
-        #     sorted_samples_array = sorted_samples_array.T
+        # # Ensuring the data is correctly structured as a 2D array
+        sorted_samples_array = np.array(player_samples)
+        if sorted_samples_array.shape[0] < sorted_samples_array.shape[1]:
+            sorted_samples_array = sorted_samples_array.T
 
-        # correlation_matrix = pd.DataFrame(np.corrcoef(sorted_samples_array.T), columns=player_names, index=player_names)
+        correlation_matrix = pd.DataFrame(np.corrcoef(sorted_samples_array.T), columns=player_names, index=player_names)
 
-        # sns.heatmap(correlation_matrix, annot=True, ax=ax2, cmap='YlGnBu', cbar_kws={"shrink": .5})
-        # ax2.set_title(f'Correlation Matrix for Game {team1_id}{team2_id}', fontsize=14)
+        sns.heatmap(correlation_matrix, annot=True, ax=ax2, cmap='YlGnBu', cbar_kws={"shrink": .5})
+        ax2.set_title(f'Correlation Matrix for Game {team1_id}{team2_id}', fontsize=14)
 
-        # original_corr_matrix = pd.DataFrame(corr_matrix, columns=player_names, index=player_names)
-        # sns.heatmap(original_corr_matrix, annot=True, ax=ax3, cmap='YlGnBu', cbar_kws={"shrink": .5})
-        # ax3.set_title(f'Original Correlation Matrix for Game {team1_id}{team2_id}', fontsize=14)
+        original_corr_matrix = pd.DataFrame(corr_matrix, columns=player_names, index=player_names)
+        sns.heatmap(original_corr_matrix, annot=True, ax=ax3, cmap='YlGnBu', cbar_kws={"shrink": .5})
+        ax3.set_title(f'Original Correlation Matrix for Game {team1_id}{team2_id}', fontsize=14)
 
-        # mean_values = [np.mean(samples) for samples in player_samples]
-        # variance_values = [np.var(samples) for samples in player_samples]
-        # min_values = [np.min(samples) for samples in player_samples]
-        # max_values = [np.max(samples) for samples in player_samples]
+        mean_values = [np.mean(samples) for samples in player_samples]
+        variance_values = [np.var(samples) for samples in player_samples]
+        min_values = [np.min(samples) for samples in player_samples]
+        max_values = [np.max(samples) for samples in player_samples]
 
-        # # Create a DataFrame for the mean and variance values
-        # mean_variance_df = pd.DataFrame({
-        #     'Player': player_names,
-        #     'Mean': mean_values,
-        #     'Variance': variance_values,
-        #     'Min' : min_values,
-        #     'Max' :max_values
-        # }).set_index('Player')
+        # Create a DataFrame for the mean and variance values
+        mean_variance_df = pd.DataFrame({
+            'Player': player_names,
+            'Mean': mean_values,
+            'Variance': variance_values,
+            'Min' : min_values,
+            'Max' :max_values
+        }).set_index('Player')
 
-        # # Plot the mean and variance table
-        # ax4.axis('tight')
-        # ax4.axis('off')
-        # ax4.table(cellText=mean_variance_df.values, colLabels=mean_variance_df.columns, rowLabels=mean_variance_df.index, cellLoc='center', loc='center')
-        # ax4.set_title(f'Mean and Variance for Game {team1_id}{team2_id}', fontsize=14)
+        # Plot the mean and variance table
+        ax4.axis('tight')
+        ax4.axis('off')
+        ax4.table(cellText=mean_variance_df.values, colLabels=mean_variance_df.columns, rowLabels=mean_variance_df.index, cellLoc='center', loc='center')
+        ax4.set_title(f'Mean and Variance for Game {team1_id}{team2_id}', fontsize=14)
 
-        # plt.savefig(f'output/Team_{team1_id}{team2_id}_Distributions_Correlation.png', bbox_inches='tight')
-        # plt.close()
+        plt.savefig(f'output/Team_{team1_id}{team2_id}_Distributions_Correlation.png', bbox_inches='tight')
+        plt.close()
 
         return temp_fpts_dict
     
@@ -1347,7 +1370,9 @@ class NBA_GPP_Simulator:
 
         # count wins, top 10s vectorized
         wins, win_counts = np.unique(ranks[0, :], return_counts=True)
-        top1pct, top1pct_counts = np.unique(ranks[0:math.ceil(0.01*len(self.field_lineups))], return_counts=True)
+
+        top1pct, top1pct_counts = np.unique(ranks[0:math.ceil(0.01*len(self.field_lineups)),:], return_counts=True)
+        
         payout_array = np.array(list(self.payout_structure.values()))
         # subtract entry fee
         payout_array = payout_array - self.entry_fee
@@ -1381,7 +1406,7 @@ class NBA_GPP_Simulator:
             results = pool.map(self.calculate_payouts, simulation_chunks)
 
         combined_result_array = np.sum(results, axis=0)
-        print(fpts_array, ranks, combined_result_array)
+
         total_sum = 0
         index_to_key = list(self.field_lineups.keys())
         for idx, roi in enumerate(combined_result_array):
@@ -1448,7 +1473,7 @@ class NBA_GPP_Simulator:
             own_s = np.sum(own_p)
             own_p = np.prod(own_p)
             win_p = round(x["Wins"] / self.num_iterations * 100, 2)
-            top10_p = round(x["Top1Percent"] / self.num_iterations * 100, 2)
+            top10_p = round((x["Top1Percent"] / self.num_iterations) * 100, 2)
             cash_p = round(x["Cashes"] / self.num_iterations * 100, 2)
             simDupes = x['Count']
             if self.site == "dk":
@@ -1550,7 +1575,7 @@ class NBA_GPP_Simulator:
         )
         with open(out_path, "w") as f:
             f.write(
-                "Player,Position,Team,Win%,Top10%,Sim. Own%,Proj. Own%,Avg. Return\n"
+                "Player,Position,Team,Win%,Top1%,Sim. Own%,Proj. Own%,Avg. Return\n"
             )
             unique_players = {}
             for val in self.field_lineups.values():
@@ -1559,7 +1584,7 @@ class NBA_GPP_Simulator:
                         unique_players[player] = {
                             "Wins": val["Wins"],
                             "Top1Percent": val["Top1Percent"],
-                            "In": 1,
+                            "In": val['Count'],
                             "ROI": val["ROI"],
                         }
                     else:
@@ -1569,7 +1594,7 @@ class NBA_GPP_Simulator:
                         unique_players[player]["Top1Percent"] = (
                             unique_players[player]["Top1Percent"] + val["Top1Percent"]
                         )
-                        unique_players[player]["In"] = unique_players[player]["In"] + 1
+                        unique_players[player]["In"] += val['Count']
                         unique_players[player]["ROI"] = (
                             unique_players[player]["ROI"] + val["ROI"]
                         )
@@ -1577,7 +1602,7 @@ class NBA_GPP_Simulator:
             for player, data in unique_players.items():
                 field_p = round(data["In"] / self.field_size * 100, 2)
                 win_p = round(data["Wins"] / self.num_iterations * 100, 2)
-                top10_p = round(data["Top1Percent"] / self.num_iterations / math.ceil(0.01*self.field_size) * 100, 2)
+                top10_p = round(data["Top1Percent"] / self.num_iterations, 2)
                 roi_p = round(data["ROI"] / data["In"] / self.num_iterations, 2)
                 for k, v in self.player_dict.items():
                     if player == v["ID"]:
