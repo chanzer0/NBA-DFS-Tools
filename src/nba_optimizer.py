@@ -17,6 +17,10 @@ class NBA_Optimizer:
     team_list = []
     lineups = []
     player_dict = {}
+    team_replacement_dict = {
+        'PHO': 'PHX',
+        'GS': 'GSW',
+    }
     at_least = {}
     at_most = {}
     team_limits = {}
@@ -64,6 +68,9 @@ class NBA_Optimizer:
                 team = row['TeamAbbrev'] if self.site == 'dk' else row['Team']
                 position = row['Position']
                 
+                if team in self.team_replacement_dict:
+                    team = self.team_replacement_dict[team]
+                
                 if (player_name, position, team) in self.player_dict:
                     if self.site == 'dk':
                         self.player_dict[(player_name, position, team)]['ID'] = int(row['ID'])
@@ -77,7 +84,6 @@ class NBA_Optimizer:
                         self.player_dict[(player_name, position, team)]['Matchup'] = row['Game']
                         if row['Game'] not in self.matchup_list:
                             self.matchup_list.append(row['Game'])
-        
                 
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -112,12 +118,13 @@ class NBA_Optimizer:
                     'StdDev': float(row['stddev']),
                     'Position': [pos for pos in row['position'].split('/')],
                 }
-                if 'PG' in row['position'] or 'SG' in row['position']:
-                    self.player_dict[(player_name, position, team)]['Position'].append('G')
-                if 'SF' in row['position'] or 'PF' in row['position']:
-                    self.player_dict[(player_name, position, team)]['Position'].append('F')
-                
-                self.player_dict[(player_name, position, team)]['Position'].append('UTIL')
+                if self.site == 'dk':
+                    if 'PG' in row['position'] or 'SG' in row['position']:
+                        self.player_dict[(player_name, position, team)]['Position'].append('G')
+                    if 'SF' in row['position'] or 'PF' in row['position']:
+                        self.player_dict[(player_name, position, team)]['Position'].append('F')
+                    
+                    self.player_dict[(player_name, position, team)]['Position'].append('UTIL')
                             
                 if row['team'] not in self.team_list:
                     self.team_list.append(row['team'])
@@ -293,6 +300,14 @@ class NBA_Optimizer:
                 else:
                     self.problem += plp.lpSum(lp_variables[(player, pos, attributes['ID'])] for player, attributes in self.player_dict.items() if pos in attributes['Position']) == 2, f"Must have 2 {pos}"
 
+            # Max 4 players from one team 
+            for team in self.team_list:
+                self.problem += plp.lpSum(
+                    lp_variables[(player, pos, attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                    for pos in attributes['Position']
+                    if team in attributes['Team']
+                ) <= 4, f"Max 4 players from {team}"
 
             # Constraint to ensure each player is only selected once
             for player in self.player_dict:
@@ -301,7 +316,6 @@ class NBA_Optimizer:
 
         # Crunch!
         for i in range(self.num_lineups):
-            # self.problem.writeLP("problem.lp")
             try:
                 self.problem.solve(plp.PULP_CBC_CMD(msg=0))
             except plp.PulpSolverError:
@@ -317,27 +331,20 @@ class NBA_Optimizer:
 
             # Get the lineup and add it to our list
             selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
+            # print(selected_vars)
             self.lineups.append(selected_vars)
             
             if i % 100 == 0:
                 print(i)
             
             # Ensure this lineup isn't picked again
-            selected_players_info = [var[0] for var in selected_vars]
-            players = []
-            for key in self.player_dict.keys():
-                if key in selected_players_info:
-                    players.append(key)
-            unique_constraints = []
-            for player_key in players:
-                player_id = self.player_dict[player_key]['ID']
-                for position in self.player_dict[player_key]['Position']:
-                    unique_constraints.append(lp_variables[(player_key, position, player_id)])
-
             self.problem += (
-                plp.lpSum(unique_constraints) <= len(players) - self.num_uniques,
+                plp.lpSum(lp_variables[x] for x in selected_vars) <= len(selected_vars) - self.num_uniques,
                 f"Lineup {i}",
             )
+            
+            
+            # self.problem.writeLP("problem.lp")
 
             # Set a new random fpts projection within their distribution
             if self.randomness_amount != 0:
@@ -363,11 +370,11 @@ class NBA_Optimizer:
         
         sorted_lineups = []
         for lineup in self.lineups:
-            sorted_lineup = self.sort_lineup_dk(lineup)
-            if self.site == 'dk':
-                sorted_lineup = self.adjust_roster_for_late_swap_dk(sorted_lineup)
+            sorted_lineup = self.sort_lineup(lineup)
+            sorted_lineup = self.adjust_roster_for_late_swap(sorted_lineup)
             sorted_lineups.append(sorted_lineup)
          
+
         out_path = os.path.join(os.path.dirname(
             __file__), '../output/{}_optimal_lineups_{}.csv'.format(self.site, datetime.datetime.now().strftime('%Y%m%d_%H%M%S')))
         with open(out_path, 'w') as f:
@@ -432,18 +439,28 @@ class NBA_Optimizer:
 
 
 
-    def sort_lineup_dk(self, lineup):
-        order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
-        sorted_lineup = [None] * 8
+    def sort_lineup(self, lineup):
+        if self.site == 'dk':
+            order = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
+            sorted_lineup = [None] * 8
+        else:
+            order = ['PG', 'PG', 'SG', 'SG', 'SF', 'SF', 'PF', 'PF', 'C']
+            sorted_lineup = [None] * 9
         
         for player in lineup:
             player_key, pos, _ = player
-            sorted_lineup[order.index(pos)] = player_key
+            order_idx = order.index(pos)
+            if sorted_lineup[order_idx] is None:
+                sorted_lineup[order_idx] = player_key
+            else:
+                sorted_lineup[order_idx + 1] = player_key
         return sorted_lineup
 
-    def adjust_roster_for_late_swap_dk(self, lineup):
+    def adjust_roster_for_late_swap(self, lineup):
+        if self.site == 'fd':
+            return lineup
+        
         sorted_lineup = list(lineup)
-
         # A function to swap two players if the conditions are met
         def swap_if_needed(primary_pos, flex_pos):
             primary_player = sorted_lineup[primary_pos]
@@ -468,6 +485,7 @@ class NBA_Optimizer:
             6: ['SF', 'PF'],
             7: ['PG', 'SG', 'SF', 'PF', 'C']
         }
+        
 
         # Check each primary position against all flexible positions
         for i in range(5):
