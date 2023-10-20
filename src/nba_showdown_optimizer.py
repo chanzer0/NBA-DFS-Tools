@@ -422,21 +422,20 @@ class NBA_Showdown_Optimizer:
             # Set a new random fpts projection within their distribution
             if self.randomness_amount != 0:
                 self.problem += (
-                    plp.lpSum(
-                        np.random.normal(
-                            self.player_dict[player]["Fpts"],
-                            (
-                                self.player_dict[player]["StdDev"]
-                                * self.randomness_amount
-                                / 100
-                            ),
-                        )
-                        * lp_variables[(player, pos, attributes['ID'])]
-                        for player, attributes in self.player_dict.items()
-                        for pos in attributes['Position']
-                    ),
-                    "Objective",
-                )
+                plp.lpSum(
+                    np.random.normal(
+                        self.player_dict[player]["Fpts"],
+                        (
+                            self.player_dict[player]["StdDev"]
+                            * self.randomness_amount
+                            / 100
+                        ),
+                    )
+                    * lp_variables[(player, player[1], attributes['ID'])]
+                    for player, attributes in self.player_dict.items()
+                ),
+                "Objective",
+            )
 
     def output(self):
         print('Lineups done generating. Outputting.')
