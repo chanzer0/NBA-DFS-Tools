@@ -21,6 +21,8 @@ class NBA_Showdown_Optimizer:
         'PHO': 'PHX',
         'GS': 'GSW',
         'SA': 'SAS',
+        'NO': 'NOP',
+        'NY': 'NYK',
     }
     at_least = {}
     at_most = {}

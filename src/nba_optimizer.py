@@ -20,6 +20,9 @@ class NBA_Optimizer:
     team_replacement_dict = {
         'PHO': 'PHX',
         'GS': 'GSW',
+        'SA': 'SAS',
+        'NO': 'NOP',
+        'NY': 'NYK',
     }
     at_least = {}
     at_most = {}
