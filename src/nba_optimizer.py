@@ -108,6 +108,8 @@ class NBA_Optimizer:
                 
                 position = row['position']
                 team = row['team']
+                if team in self.team_replacement_dict:
+                    team = self.team_replacement_dict[team]
                 self.player_dict[(player_name, position, team)] = {
                     'Fpts': float(row['fpts']),
                     'Salary': int(row['salary'].replace(',', '')),
@@ -387,7 +389,7 @@ class NBA_Optimizer:
                     fpts_p = sum(
                         self.player_dict[player]['Fpts'] for player in x)
                     own_p = np.prod(
-                        [self.player_dict[player]['Ownership'] for player in x])
+                        [self.player_dict[player]['Ownership'] / 100 for player in x])
                     own_s = sum(self.player_dict[player]['Ownership'] for player in x)
                     mins = sum([self.player_dict[player]
                                ['Minutes'] for player in x])

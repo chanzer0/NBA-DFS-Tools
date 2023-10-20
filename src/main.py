@@ -28,7 +28,7 @@ def main(arguments):
         swapto.swaptimize()
         swapto.output()
 
-    elif process == 'sd':
+    elif process == 'sd_opto':
         num_lineups = arguments[3]
         num_uniques = arguments[4]
         opto = NBA_Showdown_Optimizer(site, num_lineups, num_uniques)
