@@ -143,7 +143,7 @@ class NBA_Showdown_Optimizer:
                         'Minutes': float(row['minutes']),
                         'Name': row['name'],
                         'Team': row['team'],
-                        'Ownership': float(row['cptown%']),
+                        'Ownership': float(row['mvpown%']),
                         'StdDev': 2 * float(row['stddev']),
                         'Position': [pos for pos in row['position'].split('/')],
                     }
@@ -153,7 +153,7 @@ class NBA_Showdown_Optimizer:
                         'Minutes': float(row['minutes']),
                         'Name': row['name'],
                         'Team': row['team'],
-                        'Ownership': float(row['cptown%']),
+                        'Ownership': float(row['starown%']),
                         'StdDev': 1.5 * float(row['stddev']),
                         'Position': [pos for pos in row['position'].split('/')],
                     }
@@ -163,7 +163,7 @@ class NBA_Showdown_Optimizer:
                         'Minutes': float(row['minutes']),
                         'Name': row['name'],
                         'Team': row['team'],
-                        'Ownership': float(row['cptown%']),
+                        'Ownership': float(row['proown%']),
                         'StdDev': 1.2 * float(row['stddev']),
                         'Position': [pos for pos in row['position'].split('/')],
                     }
@@ -173,7 +173,7 @@ class NBA_Showdown_Optimizer:
                         'Minutes': float(row['minutes']),
                         'Name': row['name'],
                         'Team': row['team'],
-                        'Ownership': float(row['cptown%']),
+                        'Ownership': float(row['own%']),
                         'StdDev': float(row['stddev']),
                         'Position': [pos for pos in row['position'].split('/')],
                     }
