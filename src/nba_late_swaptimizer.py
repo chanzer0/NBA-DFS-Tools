@@ -13,7 +13,6 @@ class NBA_Late_Swaptimizer:
     config = None
     problem = None
     output_dir = None
-    num_lineups = None
     num_uniques = None
     team_list = []
     lineups = []
@@ -31,9 +30,8 @@ class NBA_Late_Swaptimizer:
     randomness_amount = 0
     min_salary = None
 
-    def __init__(self, site=None, num_lineups=0, num_uniques=1):
+    def __init__(self, site=None, num_uniques=1):
         self.site = site
-        self.num_lineups = int(num_lineups)
         self.num_uniques = int(num_uniques)
         self.load_config()
         self.load_rules()
@@ -134,8 +132,8 @@ class NBA_Late_Swaptimizer:
         with open(path, encoding='utf-8-sig') as file:
             reader = csv.DictReader(self.lower_first(file))
             current_time = datetime.datetime.now()  # get the current time
-            print(f"Current time (UTC): {current_time}")
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
+            print(f"Current time (UTC): {current_time}")
             for row in reader:
                 if row['entry id'] != '' and self.site == 'dk':
                     PG_id = re.search(r"\((\d+)\)", row['pg']).group(1)
@@ -368,11 +366,18 @@ class NBA_Late_Swaptimizer:
             # Don't dupe a lineup we already used
             i = 0
             for lineup, _ in self.output_lineups:
+                player_ids = [tpl[2] for tpl in lineup]
+                player_keys_to_exlude = []
+                for key, attr in self.player_dict.items():
+                    if attr["ID"] in player_ids:
+                        for pos in attr["Position"]:
+                            player_keys_to_exlude.append((key, pos, attr["ID"]))
                 self.problem += (
-                    plp.lpSum(lp_variables[x] for x in lineup) <= len(lineup) - self.num_uniques,
+                    plp.lpSum(lp_variables[x] for x in player_keys_to_exlude) <= len(selected_vars) - self.num_uniques,
                     f"Lineup {i}",
                 )
                 i += 1
+            
             
             try:
                 self.problem.solve(plp.PULP_CBC_CMD(msg=0))

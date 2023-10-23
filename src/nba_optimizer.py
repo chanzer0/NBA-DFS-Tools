@@ -143,7 +143,10 @@ class NBA_Optimizer:
         # Create a binary decision variable for each player for each of their positions
         lp_variables = {}
         for player, attributes in self.player_dict.items():
-            player_id = attributes['ID']
+            if 'ID' in attributes:
+                player_id = attributes['ID']
+            else:
+                print(f"Player in player_dict does not have an ID: {player}. Check for mis-matches between names, teams or positions in projections.csv and player_ids.csv")
             for pos in attributes['Position']:
                 lp_variables[(player, pos, player_id)] = plp.LpVariable(name=f"{player}_{pos}_{player_id}", cat=plp.LpBinary)
         
@@ -336,15 +339,21 @@ class NBA_Optimizer:
 
             # Get the lineup and add it to our list
             selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
-            # print(selected_vars)
             self.lineups.append(selected_vars)
             
             if i % 100 == 0:
                 print(i)
             
             # Ensure this lineup isn't picked again
+            player_ids = [tpl[2] for tpl in selected_vars]
+            player_keys_to_exlude = []
+            for key, attr in self.player_dict.items():
+                if attr["ID"] in player_ids:
+                    for pos in attr["Position"]:
+                        player_keys_to_exlude.append((key, pos, attr["ID"]))
+                        
             self.problem += (
-                plp.lpSum(lp_variables[x] for x in selected_vars) <= len(selected_vars) - self.num_uniques,
+                plp.lpSum(lp_variables[x] for x in player_keys_to_exlude) <= len(selected_vars) - self.num_uniques,
                 f"Lineup {i}",
             )
             
