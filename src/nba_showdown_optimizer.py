@@ -484,7 +484,7 @@ class NBA_Showdown_Optimizer:
                     f.write('%s\n' % lineup_str)
             else:
                 f.write(
-                    'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
+                    'MVP,STAR,PRO,UTIL,UTIL,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
                 for x in sorted_lineups:
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
