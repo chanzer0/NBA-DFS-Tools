@@ -1,7 +1,10 @@
-import sys
-from windows_inhibitor import *
 from nba_showdown_optimizer import *
+from windows_inhibitor import *
+from nba_late_swaptimizer import *
+import sys
 from nba_optimizer import *
+from windows_inhibitor import *
+from nba_late_swaptimizer import *
 
 def main(arguments):
     if len(arguments) < 3 or len(arguments) > 7:
@@ -17,6 +20,12 @@ def main(arguments):
         opto = NBA_Optimizer(site, num_lineups, num_uniques)
         opto.optimize()
         opto.output()
+        
+    if process == 'swap':
+        num_uniques = arguments[3]
+        swapto = NBA_Late_Swaptimizer(site, num_uniques)
+        swapto.swaptimize()
+        swapto.output()
 
     elif process == 'sd_opto':
         num_lineups = arguments[3]
@@ -24,9 +33,9 @@ def main(arguments):
         opto = NBA_Showdown_Optimizer(site, num_lineups, num_uniques)
         opto.optimize()
         opto.output()
-    
+
     elif process == 'sd_sim':
-        import NBA_Showdown_Simulator
+        import nba_showdown_simulator
         field_size = -1
         num_iterations = -1
         use_contest_data = False
@@ -44,7 +53,7 @@ def main(arguments):
             num_iterations = arguments[4]
         #if 'match' in arguments:
         #    match_lineup_input_to_field_size = True
-        sim = NBA_Showdown_Simulator.nba_Showdown_Simulator(site, field_size, num_iterations, use_contest_data,
+        sim = nba_showdown_simulator.nba_showdown_simulator(site, field_size, num_iterations, use_contest_data,
                                 use_file_upload)
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
@@ -76,6 +85,10 @@ def main(arguments):
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
         sim.output()
+
+    elif process == 'swaptimize':
+        opto = NBA_Late_Swaptimizer(site)
+        opto.swaptimize()
 
 
 if __name__ == "__main__":
