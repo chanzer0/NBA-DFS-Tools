@@ -413,7 +413,7 @@ class NBA_GPP_Simulator:
         ]
 
         self.optimal_score = float(fpts_proj)
-        print(self.optimal_score, player_unqiue_keys, var_values)
+        #print(self.optimal_score, player_unqiue_keys, var_values)
         
     @staticmethod
     def extract_matchup_time(game_string):
@@ -450,9 +450,6 @@ class NBA_GPP_Simulator:
                 game_info = "game info" if self.site == "dk" else "game"
                 game_info_str = row["game info"] if self.site == "dk" else row["game"]
                 result = self.extract_matchup_time(game_info_str)
-                if result:
-                    matchup, game_time = result
-                    self.game_info[matchup] = game_time
                 match = re.search(pattern="(\w{2,4}@\w{2,4})", string=row[game_info])
                 if match:
                     opp = match.groups()[0].split("@")
@@ -461,6 +458,9 @@ class NBA_GPP_Simulator:
                         if m != team:
                             team_opp = m
                     opp = tuple(opp)
+                if result:
+                    matchup, game_time = result
+                    self.game_info[opp] = game_time
                 pos_str = str(position)
                 if (player_name, pos_str, team) in self.player_dict:
                     self.player_dict[(player_name, pos_str, team)]["ID"] = str(
@@ -1079,6 +1079,60 @@ class NBA_GPP_Simulator:
 
             # print(self.field_lineups)
     
+    def get_start_time(self, player_id):
+        for _, player in self.player_dict.items():
+            if player['ID'] == player_id:
+                matchup = player["Matchup"]
+                return self.game_info[matchup]
+        return None
+    
+    def get_player_attribute(self, player_id, attribute):
+        for _, player in self.player_dict.items():
+            if player['ID'] == player_id:
+                return player.get(attribute, None)
+        return None
+    
+    def sort_lineup_by_start_time(self, lineup):
+        if self.site == 'fd':
+            return lineup
+        
+        sorted_lineup = list(lineup)
+        
+        # A function to swap two players if the conditions are met
+        def swap_if_needed(primary_pos, flex_pos):
+            primary_player = sorted_lineup[primary_pos]
+            flex_player = sorted_lineup[flex_pos]
+
+            # Check if the primary player's game time is later than the flexible player's
+            if self.get_start_time(primary_player) > self.get_start_time(flex_player):
+                primary_positions = self.position_map[primary_pos]
+                
+                # Check if the flexible player is eligible for the primary position
+                if any(pos in primary_positions for pos in self.get_player_attribute(flex_player, 'Position')):
+                    sorted_lineup[primary_pos], sorted_lineup[flex_pos] = sorted_lineup[flex_pos], sorted_lineup[primary_pos]
+
+        # Define eligible positions for each spot on the roster
+        self.position_map = {
+            0: ['PG'],
+            1: ['SG'],
+            2: ['SF'],
+            3: ['PF'],
+            4: ['C'],
+            5: ['PG', 'SG'],
+            6: ['SF', 'PF'],
+            7: ['PG', 'SG', 'SF', 'PF', 'C']
+        }
+
+        # Check each primary position against all flexible positions
+        for i in range(5):
+            for j in range(5, 8):
+                swap_if_needed(i, j)
+
+        return sorted_lineup
+
+
+
+
     def update_field_lineups(self, output, diff):
         if len(self.field_lineups) == 0:
             new_keys = list(range(0, self.field_size))
@@ -1093,7 +1147,7 @@ class NBA_GPP_Simulator:
             # Keeping track of lineup duplication counts
             if lineup_set in self.seen_lineups:
                 self.seen_lineups[lineup_set] += 1
-                
+                        
                 # Increase the count in field_lineups using the index stored in seen_lineups_ix
                 self.field_lineups[self.seen_lineups_ix[lineup_set]]["Count"] += 1
             else:
@@ -1103,8 +1157,11 @@ class NBA_GPP_Simulator:
                 if nk in self.field_lineups.keys():
                     print("bad lineups dict, please check dk_data files")
                 else:
+                    sorted_lineup = self.sort_lineup_by_start_time(next(iter(o.values()))['Lineup'])
+
                     self.field_lineups[nk] = next(iter(o.values()))
-                    self.field_lineups[nk]['Count'] += self.seen_lineups[lineup_set]
+                    self.field_lineups[nk]['Lineup'] = sorted_lineup
+                    self.field_lineups[nk]['Count'] += self.seen_lineups[lineup_set]                    
                     # Store the new nk in seen_lineups_ix for quick access in the future
                     self.seen_lineups_ix[lineup_set] = nk
                     nk += 1
@@ -1320,7 +1377,6 @@ class NBA_GPP_Simulator:
         temp_fpts_dict = {}
         size = self.num_iterations
         game_simulation_params = []
-        print(self.matchups)
         for m in self.matchups:
             game_simulation_params.append(
                 (
