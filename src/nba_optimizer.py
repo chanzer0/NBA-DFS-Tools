@@ -84,9 +84,10 @@ class NBA_Optimizer:
                         self.player_dict[(player_name, position, team)]['GameTime'] = datetime.datetime.strptime(self.player_dict[(player_name, position, team)]['GameTime'][:-3], '%m/%d/%Y %I:%M%p')
                     else:
                         self.player_dict[(player_name, position, team)]['ID'] = row['Id'].replace('-', '#')
-                        self.player_dict[(player_name, position, team)]['Matchup'] = row['Game']
-                        if row['Game'] not in self.matchup_list:
-                            self.matchup_list.append(row['Game'])
+                        game_str = row['Game'].replace('PHO', 'PHX').replace('GS', 'GSW')
+                        self.player_dict[(player_name, position, team)]['Matchup'] = game_str
+                        if game_str not in self.matchup_list:
+                            self.matchup_list.append(game_str)
                 
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -131,8 +132,8 @@ class NBA_Optimizer:
                     
                     self.player_dict[(player_name, position, team)]['Position'].append('UTIL')
                             
-                if row['team'] not in self.team_list:
-                    self.team_list.append(row['team'])
+                if team not in self.team_list:
+                    self.team_list.append(team)
                 
     def optimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
@@ -149,7 +150,6 @@ class NBA_Optimizer:
                 print(f"Player in player_dict does not have an ID: {player}. Check for mis-matches between names, teams or positions in projections.csv and player_ids.csv")
             for pos in attributes['Position']:
                 lp_variables[(player, pos, player_id)] = plp.LpVariable(name=f"{player}_{pos}_{player_id}", cat=plp.LpBinary)
-        
         
         # set the objective - maximize fpts & set randomness amount from config
         if self.randomness_amount != 0:
@@ -173,9 +173,9 @@ class NBA_Optimizer:
             self.problem += (
                 plp.lpSum(
                     self.player_dict[player]["Fpts"]
-                    * lp_variables[(player, pos, attributes['ID'])]
-                    for player, attributes in self.player_dict.items()
-                    for pos in attributes['Position']
+                    * lp_variables[(player, pos, self.player_dict[player]['ID'])]
+                    for player in self.player_dict
+                    for pos in self.player_dict[player]['Position']
                 ),
                 "Objective",
             )
@@ -212,16 +212,17 @@ class NBA_Optimizer:
             "Min Salary",
         )
         
-        # Must not play all 8 or 9 players from the same team (8 if dk, 9 if fd)
-        for matchup in self.matchup_list:
+        # Must not play all 8 or 9 players from the same match (8 if dk, 9 if fd)
+        matchup_limit = 8 if self.site == 'dk' else 9
+        for matchupIdent in self.matchup_list:
             self.problem += (
                 plp.lpSum(
                     lp_variables[(player, pos, attributes['ID'])]
                     for player, attributes in self.player_dict.items()
-                    for pos in attributes['Position'] if attributes['Matchup'] == matchup
+                    for pos in attributes['Position'] if attributes['Matchup'] in matchupIdent
                 )
-                <= 8 if self.site == 'dk' else 9,
-                f"Must not play all players from same matchup {matchup}",
+                <= matchup_limit,
+                f"Must not play all {matchup_limit} players from match {matchupIdent}",
             )
 
 
@@ -323,6 +324,7 @@ class NBA_Optimizer:
                 player_id = self.player_dict[player]['ID']
                 self.problem += plp.lpSum(lp_variables[(player, pos, player_id)] for pos in self.player_dict[player]['Position']) <= 1, f"Can only select {player} once"
 
+        self.problem.writeLP("problem.lp")
         # Crunch!
         for i in range(self.num_lineups):
             try:
