@@ -278,17 +278,18 @@ class NBA_Optimizer:
                                       for (player, pos_str, team) in self.player_dict if team == teamIdent) <= int(limit), "At most {} players from {}".format(limit, teamIdent)
             
         if self.global_team_limit is not None:
-            for teamIdent in self.team_list:
-                self.problem += (
-                    plp.lpSum(
-                        lp_variables[(player, pos, attributes['ID'])]
-                        for player, attributes in self.player_dict.items()
-                        for pos in attributes['Position']
-                        if attributes["Team"] == teamIdent
+            if not (self.site == "fd" and self.global_team_limit >= 4):
+                for teamIdent in self.team_list:
+                    self.problem += (
+                        plp.lpSum(
+                            lp_variables[(player, pos, attributes['ID'])]
+                            for player, attributes in self.player_dict.items()
+                            for pos in attributes['Position']
+                            if attributes["Team"] == teamIdent
+                        )
+                        <= int(self.global_team_limit),
+                        f"Global team limit - at most {self.global_team_limit} players from {teamIdent}",
                     )
-                    <= int(self.global_team_limit),
-                    f"Global team limit - at most {self.global_team_limit} players from {teamIdent}",
-                )
 
         if self.site == 'dk':
             # Constraints for specific positions
