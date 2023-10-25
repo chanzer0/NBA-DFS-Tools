@@ -502,9 +502,9 @@ class NBA_Late_Swaptimizer:
 
         sorted_lineups = []
         for lineup, old_lineup in self.output_lineups:
-            sorted_lineup = self.sort_lineup_dk(lineup)
+            sorted_lineup = self.sort_lineup(lineup)
             if self.site == "dk":
-                sorted_lineup = self.adjust_roster_for_late_swap_dk(
+                sorted_lineup = self.adjust_roster_for_late_swap(
                     sorted_lineup, old_lineup
                 )
             sorted_lineups.append((sorted_lineup, old_lineup))
@@ -594,19 +594,27 @@ class NBA_Late_Swaptimizer:
 
         print("Output done.")
 
-    def sort_lineup_dk(self, lineup):
-        order = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
-        sorted_lineup = [None] * 8
+    def sort_lineup(self, lineup):
+        if self.site == "dk":
+            order = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
+            sorted_lineup = [None] * 8
+        else:
+            order = ["PG", "PG", "SG", "SG", "SF", "SF", "PF", "PF", "C"]
+            sorted_lineup = [None] * 9
 
         for player in lineup:
             player_key, pos, _ = player
-            sorted_lineup[order.index(pos)] = player_key
+            order_idx = order.index(pos)
+            if sorted_lineup[order_idx] is None:
+                sorted_lineup[order_idx] = player_key
+            else:
+                sorted_lineup[order_idx + 1] = player_key
         return sorted_lineup
 
-    def adjust_roster_for_late_swap_dk(self, lineup, old_lineup):
-        sorted_lineup = list(lineup)
+    def adjust_roster_for_late_swap(self, lineup, old_lineup):
+        if self.site == "fd":
+            return lineup
 
-        # Helper function
         POSITIONS = ["PG", "SG", "SF", "PF", "C", "G", "F", "UTIL"]
 
         def is_locked(position_index):
@@ -616,45 +624,36 @@ class NBA_Late_Swaptimizer:
             else:
                 raise ValueError(f"Invalid position index: {position_index}")
 
-        # A function to swap two players if the conditions are met
-        def swap_if_needed(primary_pos, flex_pos):
-            if is_locked(primary_pos) or is_locked(flex_pos):
-                return
-            primary_player = sorted_lineup[primary_pos]
-            flex_player = sorted_lineup[flex_pos]
+        # Iterate over the entire roster construction
+        for i, position in enumerate(POSITIONS):
+            # Only check G, F, and UTIL positions
+            if position in ["G", "F", "UTIL"]:
+                current_player = lineup[i]
+                current_player_start_time = self.player_dict[current_player]["GameTime"]
 
-            # Check if the primary player's game time is later than the flexible player's
-            if (
-                self.player_dict[primary_player]["GameTime"]
-                > self.player_dict[flex_player]["GameTime"]
-            ):
-                primary_positions = self.position_map[primary_pos]
+                # Look for a swap candidate among primary positions
+                for primary_i, primary_pos in enumerate(
+                    POSITIONS[:5]
+                ):  # Only the primary positions (0 to 4)
+                    primary_player = lineup[primary_i]
+                    primary_player_start_time = self.player_dict[primary_player][
+                        "GameTime"
+                    ]
 
-                # Check if the flexible player is eligible for the primary position
-                if any(
-                    pos in primary_positions
-                    for pos in self.player_dict[flex_player]["Position"]
-                ):
-                    sorted_lineup[primary_pos], sorted_lineup[flex_pos] = (
-                        sorted_lineup[flex_pos],
-                        sorted_lineup[primary_pos],
-                    )
+                    if is_locked(primary_i) or is_locked(i):
+                        continue
 
-        # Define eligible positions for each spot on the roster
-        self.position_map = {
-            0: ["PG"],
-            1: ["SG"],
-            2: ["SF"],
-            3: ["PF"],
-            4: ["C"],
-            5: ["PG", "SG"],
-            6: ["SF", "PF"],
-            7: ["PG", "SG", "SF", "PF", "C"],
-        }
+                    # Check the conditions for the swap
+                    if (
+                        primary_player_start_time > current_player_start_time
+                        and self.is_valid_for_position(primary_player, i)
+                        and self.is_valid_for_position(current_player, primary_i)
+                    ):
+                        # Perform the swap
+                        print(
+                            f"Swapping {current_player} with {primary_player}, positions: {POSITIONS[i]} and {POSITIONS[primary_i]}"
+                        )
+                        lineup[i], lineup[primary_i] = lineup[primary_i], lineup[i]
+                        break  # Break out of the inner loop once a swap is made
 
-        # Check each primary position against all flexible positions
-        for i in range(5):
-            for j in range(5, 8):
-                swap_if_needed(i, j)
-
-        return sorted_lineup
+        return lineup
