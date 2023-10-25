@@ -1092,46 +1092,32 @@ class NBA_GPP_Simulator:
                 return player.get(attribute, None)
         return None
     
+    def is_valid_for_position(self,player, position_idx):
+        return any(pos in self.position_map[position_idx] for pos in self.get_player_attribute(player, 'Position'))
+    
     def sort_lineup_by_start_time(self, lineup):
-        if self.site == 'fd':
-            return lineup
-        
-        sorted_lineup = list(lineup)
-        
-        # A function to swap two players if the conditions are met
-        def swap_if_needed(primary_pos, flex_pos):
-            primary_player = sorted_lineup[primary_pos]
-            flex_player = sorted_lineup[flex_pos]
+        # Iterate over the entire roster construction
+        for i, position in enumerate(self.roster_construction):  # ['PG','SG','SF','PF','C','G','F','UTIL']
 
-            # Check if the primary player's game time is later than the flexible player's
-            if self.get_start_time(primary_player) > self.get_start_time(flex_player):
-                primary_positions = self.position_map[primary_pos]
-                
-                # Check if the flexible player is eligible for the primary position
-                if any(pos in primary_positions for pos in self.get_player_attribute(flex_player, 'Position')):
-                    sorted_lineup[primary_pos], sorted_lineup[flex_pos] = sorted_lineup[flex_pos], sorted_lineup[primary_pos]
+            # Only check G, F, and UTIL positions
+            if position in ['G', 'F', 'UTIL']:
+                current_player = lineup[i]
+                current_player_start_time = self.get_start_time(current_player)
 
-        # Define eligible positions for each spot on the roster
-        self.position_map = {
-            0: ['PG'],
-            1: ['SG'],
-            2: ['SF'],
-            3: ['PF'],
-            4: ['C'],
-            5: ['PG', 'SG'],
-            6: ['SF', 'PF'],
-            7: ['PG', 'SG', 'SF', 'PF', 'C']
-        }
+                # Look for a swap candidate among primary positions
+                for primary_i, primary_pos in enumerate(self.roster_construction[:5]):  # Only the primary positions (0 to 4)
+                    primary_player = lineup[primary_i]
+                    primary_player_start_time = self.get_start_time(primary_player)
 
-        # Check each primary position against all flexible positions
-        for i in range(5):
-            for j in range(5, 8):
-                swap_if_needed(i, j)
-
-        return sorted_lineup
-
-
-
+                    # Check the conditions for the swap
+                    if (primary_player_start_time > current_player_start_time and 
+                        self.is_valid_for_position(primary_player, i) and 
+                        self.is_valid_for_position(current_player, primary_i)):
+                        
+                        # Perform the swap
+                        lineup[i], lineup[primary_i] = lineup[primary_i], lineup[i]
+                        break  # Break out of the inner loop once a swap is made
+        return lineup
 
     def update_field_lineups(self, output, diff):
         if len(self.field_lineups) == 0:
@@ -1157,7 +1143,10 @@ class NBA_GPP_Simulator:
                 if nk in self.field_lineups.keys():
                     print("bad lineups dict, please check dk_data files")
                 else:
-                    sorted_lineup = self.sort_lineup_by_start_time(next(iter(o.values()))['Lineup'])
+                    if self.site == 'dk':
+                        sorted_lineup = self.sort_lineup_by_start_time(next(iter(o.values()))['Lineup'])
+                    else:
+                        sorted_lineup = next(iter(o.values()))['Lineup']
 
                     self.field_lineups[nk] = next(iter(o.values()))
                     self.field_lineups[nk]['Lineup'] = sorted_lineup
@@ -1165,6 +1154,7 @@ class NBA_GPP_Simulator:
                     # Store the new nk in seen_lineups_ix for quick access in the future
                     self.seen_lineups_ix[lineup_set] = nk
                     nk += 1
+
 
     def calc_gamma(self, mean, sd):
         alpha = (mean / sd) ** 2
