@@ -503,10 +503,7 @@ class NBA_Late_Swaptimizer:
         sorted_lineups = []
         for lineup, old_lineup in self.output_lineups:
             sorted_lineup = self.sort_lineup(lineup)
-            if self.site == "dk":
-                sorted_lineup = self.adjust_roster_for_late_swap(
-                    sorted_lineup, old_lineup
-                )
+            sorted_lineup = self.adjust_roster_for_late_swap(sorted_lineup, old_lineup)
             sorted_lineups.append((sorted_lineup, old_lineup))
 
         late_swap_lineups_contest_entry_dict = {
@@ -624,7 +621,6 @@ class NBA_Late_Swaptimizer:
             else:
                 raise ValueError(f"Invalid position index: {position_index}")
 
-        # Iterate over the entire roster construction
         for i, position in enumerate(POSITIONS):
             # Only check G, F, and UTIL positions
             if position in ["G", "F", "UTIL"]:
@@ -641,19 +637,33 @@ class NBA_Late_Swaptimizer:
                     ]
 
                     if is_locked(primary_i) or is_locked(i):
+                        print(
+                            f"Skipping swap between {primary_player} and {current_player} because one of them is locked"
+                        )
                         continue
 
                     # Check the conditions for the swap
+                    primary_player_positions = self.player_dict[primary_player][
+                        "Position"
+                    ]
+                    current_player_positions = self.player_dict[current_player][
+                        "Position"
+                    ]
                     if (
                         primary_player_start_time > current_player_start_time
-                        and self.is_valid_for_position(primary_player, i)
-                        and self.is_valid_for_position(current_player, primary_i)
+                        and any(
+                            pos in primary_player_positions
+                            for pos in current_player_positions
+                        )
+                        and any(
+                            pos in current_player_positions
+                            for pos in primary_player_positions
+                        )
                     ):
                         # Perform the swap
                         print(
-                            f"Swapping {current_player} with {primary_player}, positions: {POSITIONS[i]} and {POSITIONS[primary_i]}"
+                            f"Swapping {primary_player} and {current_player}, for positions {primary_pos} and {position}"
                         )
                         lineup[i], lineup[primary_i] = lineup[primary_i], lineup[i]
                         break  # Break out of the inner loop once a swap is made
-
         return lineup
