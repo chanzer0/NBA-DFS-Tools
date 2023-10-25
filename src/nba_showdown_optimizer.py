@@ -405,14 +405,21 @@ class NBA_Showdown_Optimizer:
 
             # Get the lineup and add it to our list
             selected_vars = [player for player in lp_variables if lp_variables[player].varValue != 0]
+            # print(selected_vars)
             self.lineups.append(selected_vars)
             
             if i % 100 == 0:
                 print(i)
             
             # Ensure this lineup isn't picked again
+            player_ids = [tpl[2] for tpl in selected_vars]
+            player_keys_to_exlude = []
+            for key, attr in self.player_dict.items():
+                if attr["ID"] in player_ids:
+                    player_keys_to_exlude.append((key, key[1], attr["ID"]))
+                        
             self.problem += (
-                plp.lpSum(lp_variables[x] for x in selected_vars) <= len(selected_vars) - self.num_uniques,
+                plp.lpSum(lp_variables[x] for x in player_keys_to_exlude) <= len(selected_vars) - self.num_uniques,
                 f"Lineup {i}",
             )
             
@@ -477,7 +484,7 @@ class NBA_Showdown_Optimizer:
                     f.write('%s\n' % lineup_str)
             else:
                 f.write(
-                    'PG,PG,SG,SG,SF,SF,PF,PF,C,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
+                    'MVP,STAR,PRO,UTIL,UTIL,Salary,Fpts Proj,Own. Prod.,Own. Sum.,Minutes,StdDev\n')
                 for x in sorted_lineups:
                     salary = sum(
                         self.player_dict[player]['Salary'] for player in x)
@@ -529,3 +536,4 @@ class NBA_Showdown_Optimizer:
                         break
 
         return sorted_lineup
+
