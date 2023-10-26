@@ -88,6 +88,16 @@ class NBA_GPP_Simulator:
     game_info = {}
     seen_lineups = {}
     seen_lineups_ix = {}
+    position_map = {
+        0: ['PG'],
+        1: ['SG'],
+        2: ['SF'],
+        3: ['PF'],
+        4: ['C'],
+        5: ['PG', 'SG'],
+        6: ['SF', 'PF'],
+        7: ['PG', 'SG', 'SF', 'PF', 'C']
+    }
 
     def __init__(
         self,
