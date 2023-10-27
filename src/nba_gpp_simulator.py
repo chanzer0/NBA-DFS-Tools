@@ -579,14 +579,14 @@ class NBA_GPP_Simulator:
                         if i >= self.field_size:
                             break
                         self.payout_structure[i - 1] = float(
-                            row["payout"].split(".")[0].replace(",", "")
+                            row["payout"].replace(",", "")
                         )
                 # single-position payouts
                 else:
                     if int(row["place"]) >= self.field_size:
                         break
                     self.payout_structure[int(row["place"]) - 1] = float(
-                        row["payout"].split(".")[0].replace(",", "")
+                        row["payout"].replace(",", "")
                     )
         # print(self.payout_structure)
 
@@ -848,7 +848,7 @@ class NBA_GPP_Simulator:
                         "ROI": 0,
                         "Cashes": 0,
                         "Type": "opto",
-                        "Count": 0,
+                        "Count": 1,
                     }
                     j += 1
         print("loaded {} lineups".format(j))
