@@ -1,8 +1,6 @@
 {
     "projection_path": "projections.csv",
-    "ownership_path": "ownership.csv",
     "player_path": "player_ids.csv",
-    "boom_bust_path": "boom_bust.csv",
     "late_swap_path": "live_lineups.csv",
     "contest_structure_path": "contest_structure.csv",
     "at_most": {
@@ -41,9 +39,12 @@
         "DAL": 2,
         "WAS": 4
     },
+	"custom_correlations": {"Devin Booker": {"Kevin Durant": 0.25, "Bradley Beal": -0.69}
+    }
     "global_team_limit": 5,
     "projection_minimum": 15,
     "randomness": 50,
-    "gpp_sim_reasonable_projection_threshold_percentage": 60,
-    "gpp_sim_reasonable_salary_threshold_percentage": 85
+    "min_lineup_salary" : 49000,
+    "max_pct_off_optimal" : 0.2,
+    "default_var" : 0.3
 }
