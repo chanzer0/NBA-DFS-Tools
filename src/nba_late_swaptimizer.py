@@ -98,9 +98,6 @@ class NBA_Late_Swaptimizer:
                             ],
                             "%m/%d/%Y %I:%M%p",
                         )
-                        self.ids_to_gametime[int(row["ID"])] = self.player_dict[
-                            (player_name, position, team)
-                        ]["GameTime"]
                     else:
                         self.player_dict[(player_name, position, team)]["ID"] = row[
                             "Id"
@@ -110,6 +107,14 @@ class NBA_Late_Swaptimizer:
                         ] = row["Game"]
                         if row["Game"] not in self.matchup_list:
                             self.matchup_list.append(row["Game"])
+    
+                # Update ids_to_gametime with all players in player_ids
+                if self.site == "dk":
+                    game_time = " ".join(row["Game Info"].split()[1:])
+                    game_time = datetime.datetime.strptime(
+                        game_time[:-3], "%m/%d/%Y %I:%M%p"
+                    )
+                    self.ids_to_gametime[int(row["ID"])] = game_time
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
