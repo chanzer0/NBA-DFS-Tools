@@ -7,7 +7,7 @@ import numpy as np
 import pulp as plp
 import random
 import itertools
-
+import pytz
 
 class NBA_Late_Swaptimizer:
     site = None
@@ -171,9 +171,11 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding="utf-8-sig") as file:
             reader = csv.DictReader(self.lower_first(file))
-            current_time = datetime.datetime.now()  # get the current time
+            current_time_utc = datetime.datetime.utcnow()  # get the current UTC time
+            eastern = pytz.timezone('US/Eastern') # DK Game Info is ET ('US/Eastern')
+            current_time = current_time_utc.replace(tzinfo=pytz.utc).astimezone(eastern).replace(tzinfo=None) # convert UTC to 'US/Eastern'
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
-            print(f"Current time (UTC): {current_time}")
+            print(f"Current time (ET): {current_time}")
             for row in reader:
                 if row["entry id"] != "" and self.site == "dk":
                     PG_id = re.search(r"\((\d+)\)", row["pg"]).group(1)
