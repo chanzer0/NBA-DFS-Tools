@@ -658,14 +658,8 @@ class NBA_Late_Swaptimizer:
                     ]
                     if (
                         primary_player_start_time > current_player_start_time
-                        and any(
-                            pos in primary_player_positions
-                            for pos in current_player_positions
-                        )
-                        and any(
-                            pos in current_player_positions
-                            for pos in primary_player_positions
-                        )
+                        and primary_pos in current_player_positions  # Ensure current_player can play in primary_pos
+                        and position in primary_player_positions  # Ensure primary_player can play in position of current_player
                     ):
                         # Perform the swap
                         print(
