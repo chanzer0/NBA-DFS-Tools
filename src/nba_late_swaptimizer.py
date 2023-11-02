@@ -7,7 +7,7 @@ import numpy as np
 import pulp as plp
 import random
 import itertools
-
+import pytz
 
 class NBA_Late_Swaptimizer:
     site = None
@@ -98,9 +98,6 @@ class NBA_Late_Swaptimizer:
                             ],
                             "%m/%d/%Y %I:%M%p",
                         )
-                        self.ids_to_gametime[int(row["ID"])] = self.player_dict[
-                            (player_name, position, team)
-                        ]["GameTime"]
                     else:
                         self.player_dict[(player_name, position, team)]["ID"] = row[
                             "Id"
@@ -110,6 +107,14 @@ class NBA_Late_Swaptimizer:
                         ] = row["Game"]
                         if row["Game"] not in self.matchup_list:
                             self.matchup_list.append(row["Game"])
+    
+                # Update ids_to_gametime with all players in player_ids
+                if self.site == "dk":
+                    game_time = " ".join(row["Game Info"].split()[1:])
+                    game_time = datetime.datetime.strptime(
+                        game_time[:-3], "%m/%d/%Y %I:%M%p"
+                    )
+                    self.ids_to_gametime[int(row["ID"])] = game_time
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -166,9 +171,11 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding="utf-8-sig") as file:
             reader = csv.DictReader(self.lower_first(file))
-            current_time = datetime.datetime.now()  # get the current time
+            current_time_utc = datetime.datetime.utcnow()  # get the current UTC time
+            eastern = pytz.timezone('US/Eastern') # DK Game Info is ET ('US/Eastern')
+            current_time = current_time_utc.replace(tzinfo=pytz.utc).astimezone(eastern).replace(tzinfo=None) # convert UTC to 'US/Eastern'
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
-            print(f"Current time (UTC): {current_time}")
+            print(f"Current time (ET): {current_time}")
             for row in reader:
                 if row["entry id"] != "" and self.site == "dk":
                     PG_id = re.search(r"\((\d+)\)", row["pg"]).group(1)
