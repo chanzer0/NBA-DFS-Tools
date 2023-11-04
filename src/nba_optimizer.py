@@ -486,9 +486,11 @@ class NBA_Optimizer:
             # Check if the primary player's game time is later than the flexible player's
             if self.player_dict[primary_player]['GameTime'] > self.player_dict[flex_player]['GameTime']:
                 primary_positions = self.position_map[primary_pos]
+                flex_positions = self.position_map[flex_pos]
                 
-                # Check if the flexible player is eligible for the primary position
-                if any(pos in primary_positions for pos in self.player_dict[flex_player]['Position']):
+                # Check that both players are eligible for the position swaps
+                if any(pos in primary_positions for pos in self.player_dict[flex_player]['Position']) and
+                    any(pos in flex_positions for pos in self.player_dict[primary_player]['Position']):
                     sorted_lineup[primary_pos], sorted_lineup[flex_pos] = sorted_lineup[flex_pos], sorted_lineup[primary_pos]
 
         # Define eligible positions for each spot on the roster
