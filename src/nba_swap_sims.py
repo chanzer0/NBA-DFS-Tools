@@ -506,20 +506,20 @@ class NBA_Swaptimizer_Sims:
             self.matchups.add((home_team_abbreviation, visitor_team_abbreviation))
             self.time_remaining_dict[home_team_abbreviation] = total_minutes_remaining
             self.time_remaining_dict[visitor_team_abbreviation] = total_minutes_remaining
-            self.time_remaining_dict =  {'IND': 0,
-                                        'CLE': 0,
-                                        'MIL': 6,
-                                        'NYK': 6,
-                                        'MIA': 7,
-                                        'WAS': 7,
-                                        'CHI': 6,
-                                        'BKN': 6,
-                                        'OKC': 9,
-                                        'GSW': 9,
-                                        'DEN': 48,
-                                        'DAL': 48,
-                                        'POR': 48,
-                                        'MEM': 48}
+            # self.time_remaining_dict =  {'IND': 0,
+            #                             'CLE': 0,
+            #                             'MIL': 6,
+            #                             'NYK': 6,
+            #                             'MIA': 7,
+            #                             'WAS': 7,
+            #                             'CHI': 6,
+            #                             'BKN': 6,
+            #                             'OKC': 9,
+            #                             'GSW': 9,
+            #                             'DEN': 48,
+            #                             'DAL': 48,
+            #                             'POR': 48,
+            #                             'MEM': 48}
             
     def extract_player_points(self, path):
         with open(path, encoding="utf-8-sig") as file:
