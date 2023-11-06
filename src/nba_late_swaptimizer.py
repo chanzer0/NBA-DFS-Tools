@@ -26,6 +26,16 @@ class NBA_Late_Swaptimizer:
     matchup_list = []
     matchup_at_least = {}
     ids_to_gametime = {}
+    position_map = {
+        0: ["PG"],
+        1: ["SG"],
+        2: ["SF"],
+        3: ["PF"],
+        4: ["C"],
+        5: ["PG", "SG"],
+        6: ["SF", "PF"],
+        7: ["PG", "SG", "SF", "PF", "C"],
+    }
     global_team_limit = None
     projection_minimum = None
     randomness_amount = 0
@@ -496,6 +506,7 @@ class NBA_Late_Swaptimizer:
                 player for player in lp_variables if lp_variables[player].varValue != 0
             ]
             self.output_lineups.append((selected_vars, lineup_obj))
+            print(self.outout_lineups)
 
     def output(self):
         print("Lineups done generating. Outputting.")
@@ -504,6 +515,7 @@ class NBA_Late_Swaptimizer:
         for lineup, old_lineup in self.output_lineups:
             sorted_lineup = self.sort_lineup(lineup)
             sorted_lineup = self.adjust_roster_for_late_swap(sorted_lineup, old_lineup)
+            new_sorted_lineup = []
             sorted_lineups.append((sorted_lineup, old_lineup))
 
         late_swap_lineups_contest_entry_dict = {
@@ -607,6 +619,12 @@ class NBA_Late_Swaptimizer:
             else:
                 sorted_lineup[order_idx + 1] = player_key
         return sorted_lineup
+    
+    def is_valid_for_position(self, player, position_idx):
+        return any(
+            pos in self.position_map[position_idx]
+            for pos in self.player_dict[player]['Position']
+        )
 
     def adjust_roster_for_late_swap(self, lineup, old_lineup):
         if self.site == "fd":
@@ -649,18 +667,12 @@ class NBA_Late_Swaptimizer:
                     current_player_positions = self.player_dict[current_player][
                         "Position"
                     ]
+                    # Check the conditions for the swap
                     if (
                         primary_player_start_time > current_player_start_time
-                        and any(
-                            pos in primary_player_positions
-                            for pos in current_player_positions
-                        )
-                        and any(
-                            pos in current_player_positions
-                            for pos in primary_player_positions
-                        )
+                        and self.is_valid_for_position(primary_player, i)
+                        and self.is_valid_for_position(current_player, primary_i)
                     ):
-                        # Perform the swap
                         print(
                             f"Swapping {primary_player} and {current_player}, for positions {primary_pos} and {position}"
                         )

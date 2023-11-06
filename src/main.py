@@ -26,6 +26,16 @@ def main(arguments):
         swapto = NBA_Late_Swaptimizer(site, num_uniques)
         swapto.swaptimize()
         swapto.output()
+    
+    elif process == 'swap_sim':
+        import nba_swap_sims
+        num_uniques = arguments[3]
+        num_iterations = int(arguments[4])
+        simto = nba_swap_sims.NBA_Swaptimizer_Sims(num_iterations, site, num_uniques)
+        simto.swaptimize()
+        simto.compute_best_guesses_parallel()
+        simto.run_tournament_simulation()
+        simto.output()    
 
     elif process == 'sd_opto':
         num_lineups = arguments[3]
@@ -85,11 +95,6 @@ def main(arguments):
         sim.generate_field_lineups()
         sim.run_tournament_simulation()
         sim.output()
-
-    elif process == 'swaptimize':
-        opto = NBA_Late_Swaptimizer(site)
-        opto.swaptimize()
-
 
 if __name__ == "__main__":
     main(sys.argv)
