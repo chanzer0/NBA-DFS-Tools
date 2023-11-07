@@ -455,7 +455,7 @@ class NBA_Swaptimizer_Sims:
         # Format the date into the string format the NBA API expects ('YYYY-MM-DD')
         formatted_date = game_date.strftime('%Y-%m-%d')
 
-        formatted_date = '2023-11-03'
+        #formatted_date = '2023-11-03'
         headers= {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
                 'Referer': 'https://www.nba.com/'}
 
