@@ -535,8 +535,8 @@ class NBA_Swaptimizer_Sims:
             # Mapping team IDs to abbreviations and adding to the dictionary
             home_team_abbreviation = team_id_to_abbreviation.get(home_team_id, 'Unknown')
             visitor_team_abbreviation = team_id_to_abbreviation.get(visitor_team_id, 'Unknown')
-            if home_team_abbreviation == 'SAC':
-                print(game, total_minutes_remaining)
+            #if home_team_abbreviation == 'SAC':
+            #    print(game, total_minutes_remaining)
             matchup = (visitor_team_abbreviation,home_team_abbreviation)
             self.matchup_list.append(matchup)
                 # Assuming team_id_to_abbreviation is a dictionary that maps team IDs to their abbreviations
@@ -1054,7 +1054,7 @@ class NBA_Swaptimizer_Sims:
             current_time = datetime.datetime.now()  # get the current time
             
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
-            print(f"Current time (UTC): {current_time}")
+            #print(f"Current time (UTC): {current_time}")
             for row in reader:
                 if row["entry id"] != "" and self.site == "dk":
                     PG_id = re.search(r"\((\d+)\)", row["pg"]).group(1)
@@ -1488,8 +1488,8 @@ class NBA_Swaptimizer_Sims:
                 try:
                     if r[p] == 'LOCKED':
                         bad_lu_count += 1
-                        if bad_lu_count < 5:
-                            print(r)                
+                        #if bad_lu_count < 5:
+                        #    print(r)                
                         #if r['UsedPlayerMinutes'] == 288:
                         #    print(r)
                         # Increment the count for the specific UsedPlayerMinutes
@@ -1909,7 +1909,7 @@ class NBA_Swaptimizer_Sims:
         temp_fpts_dict = {}
         size = self.num_iterations
         game_simulation_params = []
-        print(self.time_remaining_dict)
+        #print(self.time_remaining_dict)
         #random_keys = random.sample(list(self.contest_lineups.keys()), 5)
         #random_5_entries = {key: self.contest_lineups[key] for key in random_keys}
         #print(random_5_entries)
@@ -2239,7 +2239,7 @@ class NBA_Swaptimizer_Sims:
 
             # Write the rows
             for name, data in self.contest_entries.items():
-                print(name,data)
+                #print(name,data)
                 # Insert the username into the row dict
                 row = {'Name': name}
                 # Update the row dict with the data from contest_entries
