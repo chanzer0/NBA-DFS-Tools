@@ -1310,13 +1310,7 @@ class NBA_GPP_Simulator:
                 "C": -0.1231,
             }
 
-            if player1["Team"] == player2["Team"] and player1["Position"][0] in [
-                "PG",
-                "SG",
-                "SF",
-                "PF",
-                "C",
-            ]:
+            if player1["Team"] == player2["Team"] and player1["Position"][0] == player2['Position'][0]:
                 primary_position = player1["Position"][0]
                 return position_correlations[primary_position]
 
