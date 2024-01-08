@@ -3,3 +3,4 @@
 setup.py
 historical_data/*
 config.json
+sorter.py

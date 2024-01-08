@@ -77,6 +77,10 @@ class NBA_Late_Swaptimizer:
                 team = row["TeamAbbrev"] if self.site == "dk" else row["Team"]
                 position = row["Position"]
 
+                self.ids_to_gametime[row["ID"].replace("-", "#")] = self.player_dict[
+                    (player_name, position, team)
+                ]["GameTime"]
+
                 if (player_name, position, team) in self.player_dict:
                     if self.site == "dk":
                         self.player_dict[(player_name, position, team)]["ID"] = int(
@@ -98,9 +102,6 @@ class NBA_Late_Swaptimizer:
                             ],
                             "%m/%d/%Y %I:%M%p",
                         )
-                        self.ids_to_gametime[int(row["ID"])] = self.player_dict[
-                            (player_name, position, team)
-                        ]["GameTime"]
                     else:
                         self.player_dict[(player_name, position, team)]["ID"] = row[
                             "Id"
@@ -192,22 +193,15 @@ class NBA_Late_Swaptimizer:
                             "G": row["g"].replace("-", "#"),
                             "F": row["f"].replace("-", "#"),
                             "UTIL": row["util"].replace("-", "#"),
-                            "PG_is_locked": current_time
-                            > self.ids_to_gametime[int(PG_id)],
-                            "SG_is_locked": current_time
-                            > self.ids_to_gametime[int(SG_id)],
-                            "SF_is_locked": current_time
-                            > self.ids_to_gametime[int(SF_id)],
-                            "PF_is_locked": current_time
-                            > self.ids_to_gametime[int(PF_id)],
-                            "C_is_locked": current_time
-                            > self.ids_to_gametime[int(C_id)],
-                            "G_is_locked": current_time
-                            > self.ids_to_gametime[int(G_id)],
-                            "F_is_locked": current_time
-                            > self.ids_to_gametime[int(F_id)],
+                            "PG_is_locked": current_time > self.ids_to_gametime[PG_id],
+                            "SG_is_locked": current_time > self.ids_to_gametime[SG_id],
+                            "SF_is_locked": current_time > self.ids_to_gametime[SF_id],
+                            "PF_is_locked": current_time > self.ids_to_gametime[PF_id],
+                            "C_is_locked": current_time > self.ids_to_gametime[C_id],
+                            "G_is_locked": current_time > self.ids_to_gametime[G_id],
+                            "F_is_locked": current_time > self.ids_to_gametime[F_id],
                             "UTIL_is_locked": current_time
-                            > self.ids_to_gametime[int(UTIL_id)],
+                            > self.ids_to_gametime[UTIL_id],
                         }
                     )
         print(f"Successfully loaded {len(self.lineups)} lineups for late swap.")
