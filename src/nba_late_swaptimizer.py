@@ -7,7 +7,7 @@ import numpy as np
 import pulp as plp
 import random
 import itertools
-
+import pytz
 
 class NBA_Late_Swaptimizer:
     site = None
@@ -36,6 +36,7 @@ class NBA_Late_Swaptimizer:
         self.num_uniques = int(num_uniques)
         self.load_config()
         self.load_rules()
+        self.eastern = pytz.timezone('US/Eastern')
 
         projection_path = os.path.join(
             os.path.dirname(__file__),
@@ -111,6 +112,14 @@ class NBA_Late_Swaptimizer:
                         ] = row["Game"]
                         if row["Game"] not in self.matchup_list:
                             self.matchup_list.append(row["Game"])
+    
+                # Update ids_to_gametime with all players in player_ids
+                if self.site == "dk":
+                    game_time = " ".join(row["Game Info"].split()[1:])
+                    game_time = self.eastern.localize(
+                        datetime.datetime.strptime(game_time[:-3], "%m/%d/%Y %I:%M%p")
+                    )
+                    self.ids_to_gametime[int(row["ID"])] = game_time
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
@@ -167,9 +176,10 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding="utf-8-sig") as file:
             reader = csv.DictReader(self.lower_first(file))
-            current_time = datetime.datetime.now()  # get the current time
+            current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
+            current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
-            print(f"Current time (UTC): {current_time}")
+            print(f"Current time (ET): {current_time}")
             for row in reader:
                 if row["entry id"] != "" and self.site == "dk":
                     PG_id = re.search(r"\((\d+)\)", row["pg"]).group(1)
@@ -210,6 +220,9 @@ class NBA_Late_Swaptimizer:
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
 
+        current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
+        current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
+
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
         for lineup_obj in self.lineups:
@@ -241,6 +254,7 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
+                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
                     ),
                     "Objective",
                 )
@@ -251,6 +265,7 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
+                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
                     ),
                     "Objective",
                 )
@@ -645,14 +660,8 @@ class NBA_Late_Swaptimizer:
                     ]
                     if (
                         primary_player_start_time > current_player_start_time
-                        and any(
-                            pos in primary_player_positions
-                            for pos in current_player_positions
-                        )
-                        and any(
-                            pos in current_player_positions
-                            for pos in primary_player_positions
-                        )
+                        and primary_pos in current_player_positions  # Ensure current_player can play in primary_pos
+                        and position in primary_player_positions  # Ensure primary_player can play in position of current_player
                     ):
                         # Perform the swap
                         print(

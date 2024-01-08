@@ -579,14 +579,14 @@ class NBA_GPP_Simulator:
                         if i >= self.field_size:
                             break
                         self.payout_structure[i - 1] = float(
-                            row["payout"].split(".")[0].replace(",", "")
+                            row["payout"].replace(",", "")
                         )
                 # single-position payouts
                 else:
                     if int(row["place"]) >= self.field_size:
                         break
                     self.payout_structure[int(row["place"]) - 1] = float(
-                        row["payout"].split(".")[0].replace(",", "")
+                        row["payout"].replace(",", "")
                     )
         # print(self.payout_structure)
 
@@ -822,35 +822,24 @@ class NBA_GPP_Simulator:
                 if i == self.field_size:
                     break
                 lineup = [
-                    self.extract_id(str(row[j]))
-                    for j in range(len(self.roster_construction))
+                    self.extract_id(str(row[q]))
+                    for q in range(len(self.roster_construction))
                 ]
                 # storing if this lineup was made by an optimizer or with the generation process in this script
                 error = False
                 for l in lineup:
                     ids = [self.player_dict[k]["ID"] for k in self.player_dict]
                     if l not in ids:
-                        print("lineup {} is missing players {}".format(i, l))
+                        print("player id {} in lineup {} not found in player dict".format(l, i))
                         if l in self.id_name_dict:
                             print(self.id_name_dict[l])
                         bad_players.append(l)
                         error = True
-                if len(lineup) < 9:
-                    print("lineup {} is missing players".format(i))
+                if len(lineup) < len(self.roster_construction):
+                    print("lineup {} doesn't match roster construction size".format(i))
                     continue
                 # storing if this lineup was made by an optimizer or with the generation process in this script
                 error = False
-                for l in lineup:
-                    ids = [self.player_dict[k]["ID"] for k in self.player_dict]
-                    if l not in ids:
-                        print("lineup {} is missing players {}".format(i, l))
-                        if l in self.id_name_dict:
-                            print(self.id_name_dict[l])
-                        error = True
-                        bad_players.append(l)
-                if len(lineup) < 9:
-                    print("lineup {} is missing players".format(i))
-                    continue
                 if not error:
                     self.field_lineups[j] = {
                         "Lineup": lineup,
@@ -859,7 +848,7 @@ class NBA_GPP_Simulator:
                         "ROI": 0,
                         "Cashes": 0,
                         "Type": "opto",
-                        "Count": 0,
+                        "Count": 1,
                     }
                     j += 1
         print("loaded {} lineups".format(j))
