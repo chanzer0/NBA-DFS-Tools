@@ -16,6 +16,7 @@ from numba import jit, prange
 from scipy.stats import norm, kendalltau, multivariate_normal, gamma
 import requests
 import pytz
+from datetime import timezone, timedelta
 
 @jit(nopython=True)
 def salary_boost(salary, max_salary):
@@ -500,16 +501,40 @@ class NBA_Swaptimizer_Sims:
         regulation_game_length = 48
         overtime_period_length = 5  # NBA overtime period length in minutes
 
+        eastern = pytz.timezone('US/Eastern')
+        current_time_utc = datetime.datetime.now(timezone.utc)  # Current time in UTC
+
         for game in games_info:
-            # print(game)
+            print(game)
             game_id = game[2]
             home_team_id = game[6]
             visitor_team_id = game[7]
+            game_status = game[4].strip()
             live_period = game[9]
             live_pc_time = game[10].strip()
-            game_locked = True
-            if 'ET' in game[4]:
+
+            # Check if the game has a status indicating it's locked
+            if 'Final' in game_status or 'Qtr' in game_status or 'Halftime' in game_status:
+                game_locked = True
+            else:
+                # Handle scheduled games
                 game_locked = False
+                try:
+                    # Convert game start time to datetime object
+                    # Assuming game start time is in the format '10:00 pm ET'
+                    game_date_str = game[0].split('T')[0]  # Extract the date part
+                    game_start_time_str = game_status.replace('ET', '').strip()
+                    game_start_time = datetime.datetime.strptime(game_date_str + ' ' + game_start_time_str, '%Y-%m-%d %I:%M %p')
+
+                    # Convert to UTC
+                    game_start_time_utc = eastern.localize(game_start_time).astimezone(pytz.utc)
+                    # Check if current UTC time is past the game start time
+                    if current_time_utc >= game_start_time_utc:
+                        game_locked = True
+                    print(current_time_utc, game_start_time_utc, game_locked)
+                except ValueError:
+                    # Handle parsing errors
+                    print(f"Error parsing start time for game {game_id}, {game}")
             # Calculate the total time remaining
             # Calculate the total time remaining
             if live_period <= 4:  # Regulation time
@@ -570,16 +595,6 @@ class NBA_Swaptimizer_Sims:
 
                 self.time_remaining_dict[home_team_abbreviation]['GameTime']  = localized_datetime
                 self.time_remaining_dict[visitor_team_abbreviation]['GameTime'] = localized_datetime
-        # hardcoded_minutes = {
-        #     'DET': 32, 'GSW': 32, 'IND': 27, 'SAS': 27, 'ORL': 26, 'DAL': 26, 
-        #     'PHI': 28, 'WAS': 28, 'BKN': 36, 'MIL': 36, 'MIA': 45, 'LAL': 45, 
-        #     'NYK': 36, 'LAC': 36, 'CHI': 48, 'UTA': 48, 'HOU': 48, 'SAC': 48, 
-        #     'MIN': 48, 'BOS': 48, 'OKC': 48, 'ATL': 48, 'DEN': 48, 'NOP': 48
-        # }
-
-        # for team_abbr, minutes in hardcoded_minutes.items():
-        #     if team_abbr in self.time_remaining_dict:
-        #         self.time_remaining_dict[team_abbr]['Minutes Remaining'] = minutes        #print(self.time_remaining_dict)
         print(self.time_remaining_dict)
             
     def extract_player_points(self, path):
