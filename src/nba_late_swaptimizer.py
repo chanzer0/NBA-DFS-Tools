@@ -46,6 +46,7 @@ class NBA_Late_Swaptimizer:
         self.num_uniques = int(num_uniques)
         self.load_config()
         self.load_rules()
+        self.eastern = pytz.timezone('US/Eastern')
 
         projection_path = os.path.join(
             os.path.dirname(__file__),
@@ -87,6 +88,10 @@ class NBA_Late_Swaptimizer:
                 team = row["TeamAbbrev"] if self.site == "dk" else row["Team"]
                 position = row["Position"]
 
+                self.ids_to_gametime[row["ID"].replace("-", "#")] = self.player_dict[
+                    (player_name, position, team)
+                ]["GameTime"]
+
                 if (player_name, position, team) in self.player_dict:
                     if self.site == "dk":
                         self.player_dict[(player_name, position, team)]["ID"] = int(
@@ -121,8 +126,8 @@ class NBA_Late_Swaptimizer:
                 # Update ids_to_gametime with all players in player_ids
                 if self.site == "dk":
                     game_time = " ".join(row["Game Info"].split()[1:])
-                    game_time = datetime.datetime.strptime(
-                        game_time[:-3], "%m/%d/%Y %I:%M%p"
+                    game_time = self.eastern.localize(
+                        datetime.datetime.strptime(game_time[:-3], "%m/%d/%Y %I:%M%p")
                     )
                     self.ids_to_gametime[int(row["ID"])] = game_time
 
@@ -181,9 +186,8 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding="utf-8-sig") as file:
             reader = csv.DictReader(self.lower_first(file))
-            current_time_utc = datetime.datetime.utcnow()  # get the current UTC time
-            eastern = pytz.timezone('US/Eastern') # DK Game Info is ET ('US/Eastern')
-            current_time = current_time_utc.replace(tzinfo=pytz.utc).astimezone(eastern).replace(tzinfo=None) # convert UTC to 'US/Eastern'
+            current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
+            current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
             print(f"Current time (ET): {current_time}")
             for row in reader:
@@ -209,22 +213,15 @@ class NBA_Late_Swaptimizer:
                             "G": row["g"].replace("-", "#"),
                             "F": row["f"].replace("-", "#"),
                             "UTIL": row["util"].replace("-", "#"),
-                            "PG_is_locked": current_time
-                            > self.ids_to_gametime[int(PG_id)],
-                            "SG_is_locked": current_time
-                            > self.ids_to_gametime[int(SG_id)],
-                            "SF_is_locked": current_time
-                            > self.ids_to_gametime[int(SF_id)],
-                            "PF_is_locked": current_time
-                            > self.ids_to_gametime[int(PF_id)],
-                            "C_is_locked": current_time
-                            > self.ids_to_gametime[int(C_id)],
-                            "G_is_locked": current_time
-                            > self.ids_to_gametime[int(G_id)],
-                            "F_is_locked": current_time
-                            > self.ids_to_gametime[int(F_id)],
+                            "PG_is_locked": current_time > self.ids_to_gametime[PG_id],
+                            "SG_is_locked": current_time > self.ids_to_gametime[SG_id],
+                            "SF_is_locked": current_time > self.ids_to_gametime[SF_id],
+                            "PF_is_locked": current_time > self.ids_to_gametime[PF_id],
+                            "C_is_locked": current_time > self.ids_to_gametime[C_id],
+                            "G_is_locked": current_time > self.ids_to_gametime[G_id],
+                            "F_is_locked": current_time > self.ids_to_gametime[F_id],
                             "UTIL_is_locked": current_time
-                            > self.ids_to_gametime[int(UTIL_id)],
+                            > self.ids_to_gametime[UTIL_id],
                         }
                     )
         print(f"Successfully loaded {len(self.lineups)} lineups for late swap.")
@@ -232,6 +229,9 @@ class NBA_Late_Swaptimizer:
     def swaptimize(self):
         # Setup our linear programming equation - https://en.wikipedia.org/wiki/Linear_programming
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
+
+        current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
+        current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
 
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
@@ -264,6 +264,7 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
+                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
                     ),
                     "Objective",
                 )
@@ -274,6 +275,7 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
+                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
                     ),
                     "Objective",
                 )
@@ -677,6 +679,7 @@ class NBA_Late_Swaptimizer:
                     # Check the conditions for the swap
                     if (
                         primary_player_start_time > current_player_start_time
+
                         and self.is_valid_for_position(primary_player, i)
                         and self.is_valid_for_position(current_player, primary_i)
                     ):
