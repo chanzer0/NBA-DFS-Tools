@@ -87,21 +87,21 @@ class NBA_Optimizer:
                         self.player_dict[(player_name, position, team)]["ID"] = int(
                             row["ID"]
                         )
-                        self.player_dict[(player_name, position, team)][
-                            "Matchup"
-                        ] = row["Game Info"].split(" ")[0]
+                        self.player_dict[(player_name, position, team)]["Matchup"] = (
+                            row["Game Info"].split(" ")[0]
+                        )
                         if row["Game Info"].split(" ")[0] not in self.matchup_list:
                             self.matchup_list.append(row["Game Info"].split(" ")[0])
-                        self.player_dict[(player_name, position, team)][
-                            "GameTime"
-                        ] = " ".join(row["Game Info"].split()[1:])
-                        self.player_dict[(player_name, position, team)][
-                            "GameTime"
-                        ] = datetime.datetime.strptime(
-                            self.player_dict[(player_name, position, team)]["GameTime"][
-                                :-3
-                            ],
-                            "%m/%d/%Y %I:%M%p",
+                        self.player_dict[(player_name, position, team)]["GameTime"] = (
+                            " ".join(row["Game Info"].split()[1:])
+                        )
+                        self.player_dict[(player_name, position, team)]["GameTime"] = (
+                            datetime.datetime.strptime(
+                                self.player_dict[(player_name, position, team)][
+                                    "GameTime"
+                                ][:-3],
+                                "%m/%d/%Y %I:%M%p",
+                            )
                         )
                     else:
                         self.player_dict[(player_name, position, team)]["ID"] = row[
@@ -144,7 +144,7 @@ class NBA_Optimizer:
                 self.player_dict[(player_name, position, team)] = {
                     "Fpts": float(row["fpts"]),
                     "Salary": int(row["salary"].replace(",", "")),
-                    "Minutes": float(row["minutes"]),
+                    "Minutes": float(row["minutes"]) if "minutes" in row else 0,
                     "Name": row["name"],
                     "Team": row["team"],
                     "Ownership": float(row["own%"]),
