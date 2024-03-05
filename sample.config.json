@@ -1,8 +1,10 @@
 {
     "projection_path": "projections.csv",
     "player_path": "player_ids.csv",
-    "late_swap_path": "live_lineups.csv",
+    "boom_bust_path": "boom_bust.csv",
+    "late_swap_path": "live_lineups.csv", // if using late swap opto or late swap sims
     "contest_structure_path": "contest_structure.csv",
+    "live_contest_path" : "contest-standings-153575808.csv", // if using late swap sims
     "at_most": {
         "1": [
             ["Bam Adebayo", "Dewayne Dedmon"],
@@ -39,12 +41,15 @@
         "DAL": 2,
         "WAS": 4
     },
-	"custom_correlations": {"Devin Booker": {"Kevin Durant": 0.25, "Bradley Beal": -0.69}
-    }
+    //custom correlations allow for specific player -> position and player -> player assignments
+    "custom_correlations" : {
+        "Trae Young": {"Opp PG": 0.69, "SG":-0.42},
+        "Damian Lillard" : {"Giannis Antetokounmpo": 0.25}
+    },
     "global_team_limit": 5,
     "projection_minimum": 15,
-    "randomness": 50,
-    "min_lineup_salary" : 49000,
-    "max_pct_off_optimal" : 0.2,
-    "default_var" : 0.3
+    "randomness": 100,
+    "default_var" : 0.3, //default variance to be multiplied by fpts to create a stddev if one is not provided
+    "max_pct_off_optimal" : 0.15, // max percentage a lineup's projection can be from the optimal. note that for late swap sims, there is a backoff factor if the function can't find a valid lineup that fits within the fpts constraint 
+    "min_lineup_salary" : 49000 // minimum salary that is allowed to be generated for the contest sim. note that for late swap sims, there is a backoff factor if the function can't find a valid lineup that fits within the fpts constraint 
 }

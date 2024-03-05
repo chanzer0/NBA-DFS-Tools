@@ -24,43 +24,6 @@ from numba import jit, prange
 def salary_boost(salary, max_salary):
     return (salary / max_salary) ** 2
 
-
-# @jit(nopython=True, parallel=True)
-# def calculate_payouts(ranks, payout_array, entry_fee, field_lineup_keys, use_contest_data, field_lineups_count, top1percent):
-#     num_lineups = len(field_lineup_keys)
-#     combined_result_array = np.zeros(num_lineups)
-#     wins_array = np.zeros(num_lineups, dtype=np.uint32)
-#     top1pct_array = np.zeros(num_lineups, dtype=np.uint32)
-#     cashes_array = np.zeros(num_lineups, dtype=np.uint32)
-#     payout_cumsum = np.cumsum(payout_array)
-
-#     for r in prange(ranks.shape[1]):
-#         ranks_in_sim = ranks[:, r]
-#         for lineup_index in range(num_lineups):
-#             rank = ranks_in_sim[lineup_index]
-#             lineup_count = field_lineups_count[lineup_index]
-#             prize_for_lineup = (
-#                 (
-#                     payout_cumsum[rank + lineup_count - 1]
-#                     - payout_cumsum[rank - 1]
-#                 )
-#                 / lineup_count
-#                 if rank != 0
-#                 else payout_cumsum[rank + lineup_count - 1] / lineup_count
-#             )
-#             combined_result_array[lineup_index] += prize_for_lineup
-
-#             # Calculating Wins, Top10s, and Cashes
-#             if rank == 0:  # Checking for 1st Rank
-#                 wins_array[lineup_index] += 1
-#             elif rank < top1percent:  # Checking for Top 10 Rank
-#                 top1pct_array[lineup_index] += 1
-#             if prize_for_lineup > entry_fee:  # Checking for Cashes
-#                 cashes_array[lineup_index] += 1
-
-#     return combined_result_array, wins_array, top1pct_array, cashes_array
-
-
 class NBA_GPP_Simulator:
     config = None
     player_dict = {}
@@ -841,16 +804,30 @@ class NBA_GPP_Simulator:
                 # storing if this lineup was made by an optimizer or with the generation process in this script
                 error = False
                 if not error:
-                    self.field_lineups[j] = {
-                        "Lineup": lineup,
-                        "Wins": 0,
-                        "Top1Percent": 0,
-                        "ROI": 0,
-                        "Cashes": 0,
-                        "Type": "opto",
-                        "Count": 1,
-                    }
-                    j += 1
+                    lineup_list = sorted(lineup)           
+                    lineup_set = frozenset(lineup_list)
+
+                    # Keeping track of lineup duplication counts
+                    if lineup_set in self.seen_lineups:
+                        self.seen_lineups[lineup_set] += 1
+                    else:
+                        self.field_lineups[j] = {
+                            "Lineup": {
+                                "Lineup": lineup,
+                                "Wins": 0,
+                                "Top1Percent": 0,
+                                "ROI": 0,
+                                "Cashes": 0,
+                                "Type": "opto",
+                            },
+                            "count": 1
+                        }
+
+                        # Add to seen_lineups and seen_lineups_ix
+                        self.seen_lineups[lineup_set] = 1
+                        self.seen_lineups_ix[lineup_set] = j
+
+                        j += 1
         print("loaded {} lineups".format(j))
         # print(self.field_lineups)
 
@@ -1333,13 +1310,7 @@ class NBA_GPP_Simulator:
                 "C": -0.1231,
             }
 
-            if player1["Team"] == player2["Team"] and player1["Position"][0] in [
-                "PG",
-                "SG",
-                "SF",
-                "PF",
-                "C",
-            ]:
+            if player1["Team"] == player2["Team"] and player1["Position"][0] == player2['Position'][0]:
                 primary_position = player1["Position"][0]
                 return position_correlations[primary_position]
 
@@ -1569,6 +1540,7 @@ class NBA_GPP_Simulator:
 
         # count wins, top 10s vectorized
         wins, win_counts = np.unique(ranks[0, :], return_counts=True)
+        cashes, cash_counts = np.unique(ranks[0:len(list(self.payout_structure.values()))], return_counts=True)
 
         top1pct, top1pct_counts = np.unique(
             ranks[0 : math.ceil(0.01 * len(self.field_lineups)), :], return_counts=True
@@ -1625,6 +1597,8 @@ class NBA_GPP_Simulator:
                 self.field_lineups[idx]["Top1Percent"] += top1pct_counts[
                     np.where(top1pct == idx)
                 ][0]
+            if idx in cashes:
+                self.field_lineups[idx]["Cashes"] += cash_counts[np.where(cashes == idx)][0]
 
         end_time = time.time()
         diff = end_time - start_time
