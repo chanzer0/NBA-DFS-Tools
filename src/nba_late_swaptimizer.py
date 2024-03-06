@@ -9,6 +9,7 @@ import random
 import itertools
 import pytz
 
+
 class NBA_Late_Swaptimizer:
     site = None
     config = None
@@ -46,7 +47,7 @@ class NBA_Late_Swaptimizer:
         self.num_uniques = int(num_uniques)
         self.load_config()
         self.load_rules()
-        self.eastern = pytz.timezone('US/Eastern')
+        self.eastern = pytz.timezone("US/Eastern")
 
         projection_path = os.path.join(
             os.path.dirname(__file__),
@@ -88,41 +89,37 @@ class NBA_Late_Swaptimizer:
                 team = row["TeamAbbrev"] if self.site == "dk" else row["Team"]
                 position = row["Position"]
 
-                self.ids_to_gametime[row["ID"].replace("-", "#")] = self.player_dict[
-                    (player_name, position, team)
-                ]["GameTime"]
-
                 if (player_name, position, team) in self.player_dict:
                     if self.site == "dk":
                         self.player_dict[(player_name, position, team)]["ID"] = int(
                             row["ID"]
                         )
-                        self.player_dict[(player_name, position, team)][
-                            "Matchup"
-                        ] = row["Game Info"].split(" ")[0]
+                        self.player_dict[(player_name, position, team)]["Matchup"] = (
+                            row["Game Info"].split(" ")[0]
+                        )
                         if row["Game Info"].split(" ")[0] not in self.matchup_list:
                             self.matchup_list.append(row["Game Info"].split(" ")[0])
-                        self.player_dict[(player_name, position, team)][
-                            "GameTime"
-                        ] = " ".join(row["Game Info"].split()[1:])
-                        self.player_dict[(player_name, position, team)][
-                            "GameTime"
-                        ] = datetime.datetime.strptime(
-                            self.player_dict[(player_name, position, team)]["GameTime"][
-                                :-3
-                            ],
-                            "%m/%d/%Y %I:%M%p",
+                        self.player_dict[(player_name, position, team)]["GameTime"] = (
+                            " ".join(row["Game Info"].split()[1:])
+                        )
+                        self.player_dict[(player_name, position, team)]["GameTime"] = (
+                            datetime.datetime.strptime(
+                                self.player_dict[(player_name, position, team)][
+                                    "GameTime"
+                                ][:-3],
+                                "%m/%d/%Y %I:%M%p",
+                            )
                         )
                     else:
                         self.player_dict[(player_name, position, team)]["ID"] = row[
                             "Id"
                         ].replace("-", "#")
-                        self.player_dict[(player_name, position, team)][
-                            "Matchup"
-                        ] = row["Game"]
+                        self.player_dict[(player_name, position, team)]["Matchup"] = (
+                            row["Game"]
+                        )
                         if row["Game"] not in self.matchup_list:
                             self.matchup_list.append(row["Game"])
-    
+
                 # Update ids_to_gametime with all players in player_ids
                 if self.site == "dk":
                     game_time = " ".join(row["Game Info"].split()[1:])
@@ -186,8 +183,12 @@ class NBA_Late_Swaptimizer:
         # Read projections into a dictionary
         with open(path, encoding="utf-8-sig") as file:
             reader = csv.DictReader(self.lower_first(file))
-            current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
-            current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
+            current_time_utc = datetime.datetime.now(
+                pytz.utc
+            )  # get the current UTC time
+            current_time = current_time_utc.astimezone(
+                self.eastern
+            )  # convert UTC to 'US/Eastern'
             # current_time = datetime.datetime(2023, 10, 24, 20, 0) # testing time, such that LAL/DEN is locked
             print(f"Current time (ET): {current_time}")
             for row in reader:
@@ -213,13 +214,41 @@ class NBA_Late_Swaptimizer:
                             "G": row["g"].replace("-", "#"),
                             "F": row["f"].replace("-", "#"),
                             "UTIL": row["util"].replace("-", "#"),
-                            "PG_is_locked": current_time > self.ids_to_gametime[PG_id],
-                            "SG_is_locked": current_time > self.ids_to_gametime[SG_id],
-                            "SF_is_locked": current_time > self.ids_to_gametime[SF_id],
-                            "PF_is_locked": current_time > self.ids_to_gametime[PF_id],
-                            "C_is_locked": current_time > self.ids_to_gametime[C_id],
-                            "G_is_locked": current_time > self.ids_to_gametime[G_id],
-                            "F_is_locked": current_time > self.ids_to_gametime[F_id],
+                            "PG_is_locked": (
+                                current_time > self.ids_to_gametime[PG_id]
+                                if PG_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "SG_is_locked": (
+                                current_time > self.ids_to_gametime[SG_id]
+                                if SG_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "SF_is_locked": (
+                                current_time > self.ids_to_gametime[SF_id]
+                                if SF_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "PF_is_locked": (
+                                current_time > self.ids_to_gametime[PF_id]
+                                if PF_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "C_is_locked": (
+                                current_time > self.ids_to_gametime[C_id]
+                                if C_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "G_is_locked": (
+                                current_time > self.ids_to_gametime[G_id]
+                                if G_id in self.ids_to_gametime
+                                else False
+                            ),
+                            "F_is_locked": (
+                                current_time > self.ids_to_gametime[F_id]
+                                if F_id in self.ids_to_gametime
+                                else False
+                            ),
                             "UTIL_is_locked": current_time
                             > self.ids_to_gametime[UTIL_id],
                         }
@@ -231,7 +260,9 @@ class NBA_Late_Swaptimizer:
         # We will use PuLP as our solver - https://coin-or.github.io/pulp/
 
         current_time_utc = datetime.datetime.now(pytz.utc)  # get the current UTC time
-        current_time = current_time_utc.astimezone(self.eastern) # convert UTC to 'US/Eastern'
+        current_time = current_time_utc.astimezone(
+            self.eastern
+        )  # convert UTC to 'US/Eastern'
 
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
@@ -264,7 +295,10 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
-                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
+                        if (
+                            self.ids_to_gametime.get(attributes["ID"], current_time)
+                            > current_time
+                        )
                     ),
                     "Objective",
                 )
@@ -275,7 +309,10 @@ class NBA_Late_Swaptimizer:
                         * lp_variables[(player, pos, attributes["ID"])]
                         for player, attributes in self.player_dict.items()
                         for pos in attributes["Position"]
-                        if (self.ids_to_gametime.get(attributes["ID"], current_time) > current_time)
+                        if (
+                            self.ids_to_gametime.get(attributes["ID"], current_time)
+                            > current_time
+                        )
                     ),
                     "Objective",
                 )
@@ -314,15 +351,17 @@ class NBA_Late_Swaptimizer:
             # Must not play all 8 or 9 players from the same team (8 if dk, 9 if fd)
             for matchup in self.matchup_list:
                 self.problem += (
-                    plp.lpSum(
-                        lp_variables[(player, pos, attributes["ID"])]
-                        for player, attributes in self.player_dict.items()
-                        for pos in attributes["Position"]
-                        if attributes["Matchup"] == matchup
-                    )
-                    <= 8
-                    if self.site == "dk"
-                    else 9,
+                    (
+                        plp.lpSum(
+                            lp_variables[(player, pos, attributes["ID"])]
+                            for player, attributes in self.player_dict.items()
+                            for pos in attributes["Position"]
+                            if attributes["Matchup"] == matchup
+                        )
+                        <= 8
+                        if self.site == "dk"
+                        else 9
+                    ),
                     f"Must not play all players from same matchup {matchup}",
                 )
 
@@ -560,30 +599,30 @@ class NBA_Late_Swaptimizer:
                     (contest_id, entry_id)
                 )
                 if matching_lineup:
-                    row[
-                        "PG"
-                    ] = f"{self.player_dict[matching_lineup[0]]['Name']} ({self.player_dict[matching_lineup[0]]['ID']})"
-                    row[
-                        "SG"
-                    ] = f"{self.player_dict[matching_lineup[1]]['Name']} ({self.player_dict[matching_lineup[1]]['ID']})"
-                    row[
-                        "SF"
-                    ] = f"{self.player_dict[matching_lineup[2]]['Name']} ({self.player_dict[matching_lineup[2]]['ID']})"
-                    row[
-                        "PF"
-                    ] = f"{self.player_dict[matching_lineup[3]]['Name']} ({self.player_dict[matching_lineup[3]]['ID']})"
-                    row[
-                        "C"
-                    ] = f"{self.player_dict[matching_lineup[4]]['Name']} ({self.player_dict[matching_lineup[4]]['ID']})"
-                    row[
-                        "G"
-                    ] = f"{self.player_dict[matching_lineup[5]]['Name']} ({self.player_dict[matching_lineup[5]]['ID']})"
-                    row[
-                        "F"
-                    ] = f"{self.player_dict[matching_lineup[6]]['Name']} ({self.player_dict[matching_lineup[6]]['ID']})"
-                    row[
-                        "UTIL"
-                    ] = f"{self.player_dict[matching_lineup[7]]['Name']} ({self.player_dict[matching_lineup[7]]['ID']})"
+                    row["PG"] = (
+                        f"{self.player_dict[matching_lineup[0]]['Name']} ({self.player_dict[matching_lineup[0]]['ID']})"
+                    )
+                    row["SG"] = (
+                        f"{self.player_dict[matching_lineup[1]]['Name']} ({self.player_dict[matching_lineup[1]]['ID']})"
+                    )
+                    row["SF"] = (
+                        f"{self.player_dict[matching_lineup[2]]['Name']} ({self.player_dict[matching_lineup[2]]['ID']})"
+                    )
+                    row["PF"] = (
+                        f"{self.player_dict[matching_lineup[3]]['Name']} ({self.player_dict[matching_lineup[3]]['ID']})"
+                    )
+                    row["C"] = (
+                        f"{self.player_dict[matching_lineup[4]]['Name']} ({self.player_dict[matching_lineup[4]]['ID']})"
+                    )
+                    row["G"] = (
+                        f"{self.player_dict[matching_lineup[5]]['Name']} ({self.player_dict[matching_lineup[5]]['ID']})"
+                    )
+                    row["F"] = (
+                        f"{self.player_dict[matching_lineup[6]]['Name']} ({self.player_dict[matching_lineup[6]]['ID']})"
+                    )
+                    row["UTIL"] = (
+                        f"{self.player_dict[matching_lineup[7]]['Name']} ({self.player_dict[matching_lineup[7]]['ID']})"
+                    )
 
             updated_rows.append(row)
 
@@ -628,11 +667,11 @@ class NBA_Late_Swaptimizer:
             else:
                 sorted_lineup[order_idx + 1] = player_key
         return sorted_lineup
-    
+
     def is_valid_for_position(self, player, position_idx):
         return any(
             pos in self.position_map[position_idx]
-            for pos in self.player_dict[player]['Position']
+            for pos in self.player_dict[player]["Position"]
         )
 
     def adjust_roster_for_late_swap(self, lineup, old_lineup):
@@ -679,7 +718,6 @@ class NBA_Late_Swaptimizer:
                     # Check the conditions for the swap
                     if (
                         primary_player_start_time > current_player_start_time
-
                         and self.is_valid_for_position(primary_player, i)
                         and self.is_valid_for_position(current_player, primary_i)
                     ):
