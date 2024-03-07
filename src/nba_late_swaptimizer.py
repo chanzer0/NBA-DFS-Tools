@@ -126,7 +126,7 @@ class NBA_Late_Swaptimizer:
                     game_time = self.eastern.localize(
                         datetime.datetime.strptime(game_time[:-3], "%m/%d/%Y %I:%M%p")
                     )
-                    self.ids_to_gametime[int(row["ID"])] = game_time
+                    self.ids_to_gametime[row["ID"]] = game_time
 
     def load_rules(self):
         self.at_most = self.config["at_most"]
