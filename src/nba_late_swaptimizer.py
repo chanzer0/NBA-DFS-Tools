@@ -554,7 +554,7 @@ class NBA_Late_Swaptimizer:
                 player for player in lp_variables if lp_variables[player].varValue != 0
             ]
             self.output_lineups.append((selected_vars, lineup_obj))
-            print(self.outout_lineups)
+            print(self.output_lineups)
 
     def output(self):
         print("Lineups done generating. Outputting.")
