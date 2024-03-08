@@ -812,15 +812,13 @@ class NBA_GPP_Simulator:
                         self.seen_lineups[lineup_set] += 1
                     else:
                         self.field_lineups[j] = {
-                            "Lineup": {
-                                "Lineup": lineup,
-                                "Wins": 0,
-                                "Top1Percent": 0,
-                                "ROI": 0,
-                                "Cashes": 0,
-                                "Type": "opto",
-                            },
-                            "count": 1
+                            "Lineup": lineup,
+                            "Wins": 0,
+                            "Top1Percent": 0,
+                            "ROI": 0,
+                            "Cashes": 0,
+                            "Type": "opto",
+                            "Count": 1,
                         }
 
                         # Add to seen_lineups and seen_lineups_ix
