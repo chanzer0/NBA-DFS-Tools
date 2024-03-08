@@ -818,7 +818,7 @@ class NBA_GPP_Simulator:
                             "ROI": 0,
                             "Cashes": 0,
                             "Type": "opto",
-                            "Count": 0,
+                            "Count": 1,
                         }
 
                         # Add to seen_lineups and seen_lineups_ix
