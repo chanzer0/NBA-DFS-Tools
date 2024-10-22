@@ -47,6 +47,7 @@ Where:
 
 - `opto` for running optimal lineup crunches, with or without randomness
 - `sim` for running GPP simulations
+- `pick5` for running pick5 crunches
 
   - Usage #1 allows you to run arbitrary simulations for any field size and number of iterations, without regards to a real contest structure. The usage for this is: `python .\main.py <site> sim <field_size> <num_iterations>`, where `<field_size>` is the known entrant size, `<num_iterations>` is the number of times you wish to simulate the tournament.
 
