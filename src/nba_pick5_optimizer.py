@@ -147,14 +147,15 @@ class NBA_Pick5_Optimizer:
         # We want to create a variable for each roster slot.
         # There will be an index for each player and the variable will be binary (0 or 1) representing whether the player is included or excluded from the roster.
         # Create a binary decision variable for each player for each of their positions
+
+        # Delete players that don't have an ID
+        for player in list(self.player_dict.keys()):
+            if "ID" not in self.player_dict[player]:
+                del self.player_dict[player]
+
         lp_variables = {}
         for player, attributes in self.player_dict.items():
-            if "ID" in attributes:
-                player_id = attributes["ID"]
-            else:
-                print(
-                    f"Player in player_dict does not have an ID: {player}. Check for mis-matches between names, teams or positions in projections.csv and player_ids.csv"
-                )
+            player_id = attributes["ID"]
             position = attributes["Position"]
             lp_variables[(player, position, player_id)] = plp.LpVariable(
                 name=f"{player}_{position}_{player_id}", cat=plp.LpBinary
