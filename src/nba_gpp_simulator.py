@@ -24,6 +24,7 @@ from numba import jit, prange
 def salary_boost(salary, max_salary):
     return (salary / max_salary) ** 2
 
+
 class NBA_GPP_Simulator:
     config = None
     player_dict = {}
@@ -509,6 +510,7 @@ class NBA_GPP_Simulator:
                     matchup, game_time = result
                     self.game_info[opp] = game_time
                 pos_str = str(position)
+                # print(player_name, pos_str, team)
                 if (player_name, pos_str, team) in self.player_dict:
                     self.player_dict[(player_name, pos_str, team)]["ID"] = str(
                         row["id"]
@@ -765,6 +767,8 @@ class NBA_GPP_Simulator:
     def extract_id(self, cell_value):
         if "(" in cell_value and ")" in cell_value:
             return cell_value.split("(")[1].replace(")", "")
+        elif ":" in cell_value:
+            return cell_value.split(":")[0]
         else:
             return cell_value
 
@@ -793,7 +797,11 @@ class NBA_GPP_Simulator:
                 for l in lineup:
                     ids = [self.player_dict[k]["ID"] for k in self.player_dict]
                     if l not in ids:
-                        print("player id {} in lineup {} not found in player dict".format(l, i))
+                        print(
+                            "player id {} in lineup {} not found in player dict".format(
+                                l, i
+                            )
+                        )
                         if l in self.id_name_dict:
                             print(self.id_name_dict[l])
                         bad_players.append(l)
@@ -804,7 +812,7 @@ class NBA_GPP_Simulator:
                 # storing if this lineup was made by an optimizer or with the generation process in this script
                 error = False
                 if not error:
-                    lineup_list = sorted(lineup)           
+                    lineup_list = sorted(lineup)
                     lineup_set = frozenset(lineup_list)
 
                     # Keeping track of lineup duplication counts
@@ -1173,9 +1181,11 @@ class NBA_GPP_Simulator:
                 output = pool.starmap(self.generate_lineups, problems)
                 print(
                     "number of running processes =",
-                    pool.__dict__["_processes"]
-                    if (pool.__dict__["_state"]).upper() == "RUN"
-                    else None,
+                    (
+                        pool.__dict__["_processes"]
+                        if (pool.__dict__["_state"]).upper() == "RUN"
+                        else None
+                    ),
                 )
                 pool.close()
                 pool.join()
@@ -1308,7 +1318,10 @@ class NBA_GPP_Simulator:
                 "C": -0.1231,
             }
 
-            if player1["Team"] == player2["Team"] and player1["Position"][0] == player2['Position'][0]:
+            if (
+                player1["Team"] == player2["Team"]
+                and player1["Position"][0] == player2["Position"][0]
+            ):
                 primary_position = player1["Position"][0]
                 return position_correlations[primary_position]
 
@@ -1521,6 +1534,8 @@ class NBA_GPP_Simulator:
         for index, values in self.field_lineups.items():
             try:
                 fpts_sim = sum([temp_fpts_dict[player] for player in values["Lineup"]])
+                # store lineup fpts sum in 2d np array where index (row) corresponds to index of field_lineups and columns are the fpts from each sim
+                fpts_array[index] = fpts_sim
             except KeyError:
                 for player in values["Lineup"]:
                     if player not in temp_fpts_dict.keys():
@@ -1529,8 +1544,6 @@ class NBA_GPP_Simulator:
                         # if v['ID'] == player:
                         #        print(k,v)
                 # print('cant find player in sim dict', values["Lineup"], temp_fpts_dict.keys())
-            # store lineup fpts sum in 2d np array where index (row) corresponds to index of field_lineups and columns are the fpts from each sim
-            fpts_array[index] = fpts_sim
 
         fpts_array = fpts_array.astype(np.float16)
         # ranks = np.argsort(fpts_array, axis=0)[::-1].astype(np.uint16)
@@ -1538,7 +1551,9 @@ class NBA_GPP_Simulator:
 
         # count wins, top 10s vectorized
         wins, win_counts = np.unique(ranks[0, :], return_counts=True)
-        cashes, cash_counts = np.unique(ranks[0:len(list(self.payout_structure.values()))], return_counts=True)
+        cashes, cash_counts = np.unique(
+            ranks[0 : len(list(self.payout_structure.values()))], return_counts=True
+        )
 
         top1pct, top1pct_counts = np.unique(
             ranks[0 : math.ceil(0.01 * len(self.field_lineups)), :], return_counts=True
@@ -1596,7 +1611,9 @@ class NBA_GPP_Simulator:
                     np.where(top1pct == idx)
                 ][0]
             if idx in cashes:
-                self.field_lineups[idx]["Cashes"] += cash_counts[np.where(cashes == idx)][0]
+                self.field_lineups[idx]["Cashes"] += cash_counts[
+                    np.where(cashes == idx)
+                ][0]
 
         end_time = time.time()
         diff = end_time - start_time
@@ -1610,6 +1627,9 @@ class NBA_GPP_Simulator:
     def output(self):
         unique = {}
         for index, x in self.field_lineups.items():
+            if len(x["Lineup"]) < 8:
+                print(f"invalid lineup found: {len(x['Lineup'])} players.")
+                continue
             # if index == 0:
             #    print(x)
             lu_type = x["Type"]
@@ -1632,12 +1652,12 @@ class NBA_GPP_Simulator:
                         own_p.append(v["Ownership"] / 100)
                         lu_names.append(v["DK Name"])
                         lu_teams.append(v["Team"])
-
                         continue
             counter = collections.Counter(lu_teams)
             stacks = counter.most_common()
 
             # Find the QB team in stacks and set it as primary stack, remove it from stacks and subtract 1 to make sure qb isn't counted
+            # print(f"stacks: {stacks}")
             primaryStack = str(stacks[0][0]) + " " + str(stacks[0][1])
             # After removing QB team, the first team in stacks will be the team with most players not in QB stack
             secondaryStack = str(stacks[1][0]) + " " + str(stacks[1][1])
